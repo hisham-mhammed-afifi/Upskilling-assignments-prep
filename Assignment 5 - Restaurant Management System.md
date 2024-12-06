@@ -191,3 +191,79 @@ Here’s a structured ERD for the **Restaurant Management System** based on the 
 - **Orders** are placed by **Customers**, processed by **Staff**, and assigned to **Tables**.
 
 ---
+
+```mermaid
+
+erDiagram
+    CUSTOMER {
+        int Customer_ID PK
+        string Name
+        string Contact_Info
+        string Preferences
+    }
+    TABLE {
+        int Table_ID PK
+        int Number_of_Seats
+        string Location
+        string Reservation_Status
+    }
+    ORDER {
+        int Order_ID PK
+        int Table_ID FK
+        int Customer_ID FK
+        int Staff_ID FK
+        string Order_Status
+        datetime Order_Date_Time
+    }
+    MENU {
+        int Menu_Item_ID PK
+        string Name
+        string Category
+        float Price
+    }
+    INGREDIENT {
+        int Ingredient_ID PK
+        string Name
+        float Quantity_in_stock
+        float Restock_Threshold
+    }
+    STAFF {
+        int Staff_ID PK
+        string Name
+        string Role
+        string Shift_Schedule
+    }
+    RESERVATION {
+        int Reservation_ID PK
+        int Customer_ID FK
+        int Table_ID FK
+        datetime Reservation_Date_Time
+        string Status
+        string Special_Requests
+    }
+    CATEGORY {
+        int Category_ID PK
+        string Category_Name
+    }
+    MENU_CATEGORY {
+        int Menu_Item_ID FK
+        int Category_ID FK
+    }
+    MENU_INGREDIENT {
+        int Menu_Item_ID FK
+        int Ingredient_ID FK
+    }
+
+    CUSTOMER }|--o{ RESERVATION : "makes"
+    CUSTOMER }|--o{ ORDER : "places"
+    TABLE }|--o{ RESERVATION : "has"
+    TABLE }|--o{ ORDER : "assigned"
+    STAFF }|--o{ ORDER : "handles"
+    MENU }|--o{ MENU_CATEGORY : "belongs to"
+    CATEGORY }|--o{ MENU_CATEGORY : "contains"
+    MENU }|--o{ MENU_INGREDIENT : "uses"
+    INGREDIENT }|--o{ MENU_INGREDIENT : "used in"
+    RESERVATION }|--o{ TABLE : "reserves"
+
+
+```

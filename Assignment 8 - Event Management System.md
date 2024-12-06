@@ -285,3 +285,70 @@ Based on the provided requirements, here's an ERD that accommodates the core com
    - The report will need to aggregate data from the `Registrations`, `Event_Sponsors`, and possibly a `Revenue` table (if more details on services are included).
 
 ---
+
+```mermaid
+
+erDiagram
+    PRODUCTS {
+        int Product_ID PK
+        string Name
+        int Category_ID FK
+        float Price
+        int Stock_Quantity
+        int Reorder_Level
+    }
+    CATEGORIES {
+        int Category_ID PK
+        string Category_Name
+    }
+    SUPPLIERS {
+        int Supplier_ID PK
+        string Name
+        string Contact_Information
+        date Date_of_Last_Restock
+    }
+    SUPPLIERS_PRODUCTS {
+        int Supplier_ID FK
+        int Product_ID FK
+    }
+    CUSTOMERS {
+        int Customer_ID PK
+        string Name
+        string Contact_Information
+    }
+    PURCHASE_HISTORY {
+        int Purchase_ID PK
+        int Customer_ID FK
+        int Product_ID FK
+        int Quantity
+        date Date_of_Purchase
+        float Total_Cost
+    }
+    SALES_TRANSACTIONS {
+        int Transaction_ID PK
+        date Date
+        int Customer_ID FK
+        float Total_Cost
+        float Discount_Applied
+    }
+    DISCOUNTS_PROMOTIONS {
+        int Discount_ID PK
+        int Product_ID FK
+        string Discount_Type
+        float Discount_Value
+        date Start_Date
+        date End_Date
+    }
+
+    PRODUCTS ||--o| CATEGORIES : "belongs to"
+    SUPPLIERS ||--o| SUPPLIERS_PRODUCTS : "provides"
+    PRODUCTS ||--o| SUPPLIERS_PRODUCTS : "supplied by"
+    CUSTOMERS ||--o| PURCHASE_HISTORY : "makes"
+    PRODUCTS ||--o| PURCHASE_HISTORY : "purchased"
+    CUSTOMERS ||--o| SALES_TRANSACTIONS : "makes"
+    PRODUCTS ||--o| SALES_TRANSACTIONS : "sold in"
+    PRODUCTS ||--o| DISCOUNTS_PROMOTIONS : "has discount"
+    SALES_TRANSACTIONS ||--o| DISCOUNTS_PROMOTIONS : "applies"
+
+
+```

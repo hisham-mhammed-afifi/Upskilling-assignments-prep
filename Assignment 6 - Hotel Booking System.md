@@ -214,3 +214,61 @@ Based on the client’s requirements, here’s a structured ERD for the Hotel Ma
 - The **Staff Schedule** should be robust to accommodate multiple shift systems and role-based permissions.
 
 ---
+
+```mermaid
+
+erDiagram
+    GUESTS {
+        int GuestID PK
+        string Name
+        string Email
+        string PhoneNumber
+        string Preferences
+    }
+    ROOMS {
+        int RoomID PK
+        string RoomType
+        float PricePerNight
+        int FloorNumber
+        string AvailabilityStatus
+    }
+    BOOKINGS {
+        int BookingID PK
+        int GuestID FK
+        int RoomID FK
+        datetime CheckInDate
+        datetime CheckOutDate
+        string PaymentStatus
+        string SpecialRequests
+        string BookingStatus
+    }
+    SERVICES {
+        int ServiceID PK
+        int BookingID FK
+        string ServiceType
+        datetime ServiceDate
+        float Cost
+        string ServiceStatus
+    }
+    STAFF {
+        int StaffID PK
+        string Name
+        string Role
+        string Schedule
+        string RoleBasedAccess
+    }
+    REPORTS {
+        int ReportID PK
+        string ReportType
+        datetime DateGenerated
+        string ReportData
+    }
+
+    GUESTS }|--o{ BOOKINGS : "makes"
+    ROOMS }|--o{ BOOKINGS : "linked to"
+    BOOKINGS }|--o{ SERVICES : "has"
+    STAFF }|--o{ BOOKINGS : "manages"
+    STAFF }|--o{ ROOMS : "cleans"
+    REPORTS }|--o{ BOOKINGS : "summarizes"
+
+```

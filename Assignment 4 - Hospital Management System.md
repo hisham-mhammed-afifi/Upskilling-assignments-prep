@@ -223,3 +223,78 @@ For the **Hospital Management System** ERD, the design needs to efficiently mana
   - M:1 → **Departments** (Department_ID)
 
 ---
+
+```mermaid
+
+erDiagram
+    PATIENT {
+        int Patient_ID PK
+        string Name
+        int Age
+        date Admission_Date
+        string Medical_History
+        string Allergies
+    }
+    DOCTOR {
+        int Doctor_ID PK
+        string Name
+        string Specialization
+        string Availability
+        string Phone_Number
+    }
+    DEPARTMENT {
+        int Department_ID PK
+        string Department_Name
+        int Head_Doctor FK
+        string Schedule
+    }
+    ROOM {
+        int Room_ID PK
+        string Room_Type
+        string Availability
+        int Assigned_Patient_ID FK
+    }
+    APPOINTMENT {
+        int Appointment_ID PK
+        int Patient_ID FK
+        int Doctor_ID FK
+        date Date
+        time Time
+        int Room_ID FK
+        string Tests
+        string Prescriptions
+    }
+    PRESCRIPTION {
+        int Prescription_ID PK
+        int Appointment_ID FK
+        string Medication
+        string Dosage
+    }
+    TEST {
+        int Test_ID PK
+        int Appointment_ID FK
+        string Test_Type
+        string Test_Result
+    }
+    DOCTOR_DEPARTMENT_ASSIGNMENT {
+        int Assignment_ID PK
+        int Doctor_ID FK
+        int Department_ID FK
+    }
+
+    PATIENT }|--o{ APPOINTMENT : "has"
+    DOCTOR }|--o{ APPOINTMENT : "manages"
+    ROOM }|--o{ APPOINTMENT : "assigned"
+    DOCTOR }|--o{ PRESCRIPTION : "writes"
+    APPOINTMENT }|--o{ PRESCRIPTION : "generates"
+    APPOINTMENT }|--o{ TEST : "includes"
+    DOCTOR }|--o{ DOCTOR_DEPARTMENT_ASSIGNMENT : "assigned to"
+    DEPARTMENT }|--o{ DOCTOR_DEPARTMENT_ASSIGNMENT : "assigns"
+    DOCTOR }|--o{ DEPARTMENT : "works in"
+    ROOM }|--o{ PATIENT : "assigned"
+    DEPARTMENT }|--o{ DOCTOR : "has"
+    PATIENT }|--o{ ROOM : "assigned"
+    TEST }|--o{ APPOINTMENT : "linked to"
+
+
+```

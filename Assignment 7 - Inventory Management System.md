@@ -171,8 +171,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    - Category_ID (FK)
    - Price
    - Stock_Quantity
-   - Reorder_Level  
-     _Relationships_:
+   - Reorder*Level  
+     \_Relationships*:
    - **Product Category**: A product belongs to a category (1:1 relationship with Categories).
    - **Supplier-Product**: Many-to-many relationship with Suppliers (through Suppliers_Products table).
    - **Sales Transaction**: A product can appear in multiple sales transactions.
@@ -181,8 +181,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    Fields:
 
    - Category_ID (PK)
-   - Category_Name  
-     _Relationships_:
+   - Category*Name  
+     \_Relationships*:
    - **Products**: One category can have many products (1:many relationship with Products).
 
 3. **Suppliers**  
@@ -191,8 +191,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    - Supplier_ID (PK)
    - Name
    - Contact_Information
-   - Date_of_Last_Restock  
-     _Relationships_:
+   - Date*of_Last_Restock  
+     \_Relationships*:
    - **Supplier-Product**: Many-to-many relationship with Products (through Suppliers_Products table).
    - **Purchase History**: Suppliers provide products to customers via sales transactions.
 
@@ -200,8 +200,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    Fields:
 
    - Supplier_ID (FK)
-   - Product_ID (FK)  
-     _Relationships_:
+   - Product*ID (FK)  
+     \_Relationships*:
    - **Suppliers**: A product can be supplied by multiple suppliers (many-to-many relationship with Suppliers).
    - **Products**: A supplier can provide multiple products (many-to-many relationship with Products).
 
@@ -210,8 +210,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
 
    - Customer_ID (PK)
    - Name
-   - Contact_Information  
-     _Relationships_:
+   - Contact*Information  
+     \_Relationships*:
    - **Purchase History**: A customer can make multiple purchases (1:many relationship with Purchase_History).
    - **Sales Transactions**: A customer can make multiple sales transactions (1:many relationship with Sales_Transactions).
 
@@ -223,8 +223,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    - Product_ID (FK)
    - Quantity
    - Date_of_Purchase
-   - Total_Cost  
-     _Relationships_:
+   - Total*Cost  
+     \_Relationships*:
    - **Customer**: Each purchase record links to one customer (many-to-one relationship with Customers).
    - **Product**: Each purchase record links to one product (many-to-one relationship with Products).
 
@@ -235,8 +235,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    - Date
    - Customer_ID (FK)
    - Total_Cost
-   - Discount_Applied  
-     _Relationships_:
+   - Discount*Applied  
+     \_Relationships*:
    - **Customer**: A sale is associated with one customer (many-to-one relationship with Customers).
    - **Products**: Each sale can include multiple products (many-to-many relationship, modeled by a junction table or line item).
    - **Discounts/Promotions**: Discounts applied during the transaction are tracked.
@@ -249,8 +249,8 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
    - Discount_Type
    - Discount_Value
    - Start_Date
-   - End_Date  
-     _Relationships_:
+   - End*Date  
+     \_Relationships*:
    - **Product**: A discount is applied to a specific product (many-to-one relationship with Products).
    - **Sales Transactions**: Discounts can be applied to sales transactions.
 
@@ -277,3 +277,69 @@ The client, a store owner, requires a comprehensive system to manage inventory, 
 - **Reports** (Query-Driven from Products, Sales Transactions, Suppliers)
 
 ---
+
+```mermaid
+
+erDiagram
+    PRODUCTS {
+        int Product_ID PK
+        string Name
+        int Category_ID FK
+        float Price
+        int Stock_Quantity
+        int Reorder_Level
+    }
+    CATEGORIES {
+        int Category_ID PK
+        string Category_Name
+    }
+    SUPPLIERS {
+        int Supplier_ID PK
+        string Name
+        string Contact_Information
+        date Date_of_Last_Restock
+    }
+    SUPPLIERS_PRODUCTS {
+        int Supplier_ID FK
+        int Product_ID FK
+    }
+    CUSTOMERS {
+        int Customer_ID PK
+        string Name
+        string Contact_Information
+    }
+    PURCHASE_HISTORY {
+        int Purchase_ID PK
+        int Customer_ID FK
+        int Product_ID FK
+        int Quantity
+        date Date_of_Purchase
+        float Total_Cost
+    }
+    SALES_TRANSACTIONS {
+        int Transaction_ID PK
+        date Date
+        int Customer_ID FK
+        float Total_Cost
+        float Discount_Applied
+    }
+    DISCOUNTS_PROMOTIONS {
+        int Discount_ID PK
+        int Product_ID FK
+        string Discount_Type
+        float Discount_Value
+        date Start_Date
+        date End_Date
+    }
+
+    PRODUCTS ||--o| CATEGORIES : "belongs to"
+    SUPPLIERS ||--o| SUPPLIERS_PRODUCTS : "provides"
+    PRODUCTS ||--o| SUPPLIERS_PRODUCTS : "supplied by"
+    CUSTOMERS ||--o| PURCHASE_HISTORY : "makes"
+    PRODUCTS ||--o| PURCHASE_HISTORY : "purchased"
+    CUSTOMERS ||--o| SALES_TRANSACTIONS : "makes"
+    PRODUCTS ||--o| SALES_TRANSACTIONS : "sold in"
+    PRODUCTS ||--o| DISCOUNTS_PROMOTIONS : "has discount"
+    SALES_TRANSACTIONS ||--o| DISCOUNTS_PROMOTIONS : "applies"
+
+```
