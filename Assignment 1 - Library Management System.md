@@ -331,3 +331,267 @@ erDiagram
     LIBRARIANS ||--o{ TRANSACTIONS : "one-to-many"
 
 ```
+
+---
+
+### SQL Queries for the Library Management System
+
+Based on the provided ERD design, here are the SQL queries needed to create the tables and establish the necessary relationships. I will break it down into several sections.
+
+---
+
+### 1. **Table Creation Queries:**
+
+#### Books Table
+
+```sql
+CREATE TABLE Books (
+    BookID INT PRIMARY KEY,
+    Title VARCHAR(255),
+    PublisherID INT,
+    YearPublished INT,
+    Series VARCHAR(255),
+    CategoryID INT,
+    FOREIGN KEY (PublisherID) REFERENCES Publishers(PublisherID),
+    FOREIGN KEY (CategoryID) REFERENCES Categories(CategoryID)
+);
+```
+
+#### Authors Table
+
+```sql
+CREATE TABLE Authors (
+    AuthorID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Bio TEXT
+);
+```
+
+#### Publishers Table
+
+```sql
+CREATE TABLE Publishers (
+    PublisherID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Address TEXT
+);
+```
+
+#### Categories Table
+
+```sql
+CREATE TABLE Categories (
+    CategoryID INT PRIMARY KEY,
+    CategoryName VARCHAR(255)
+);
+```
+
+#### Members Table
+
+```sql
+CREATE TABLE Members (
+    MemberID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Address TEXT,
+    PhoneNumber VARCHAR(20),
+    DateJoined DATE,
+    MembershipType ENUM('Regular', 'Premium'),
+    AnnualFee DECIMAL(10, 2)
+);
+```
+
+#### Transactions Table
+
+```sql
+CREATE TABLE Transactions (
+    TransactionID INT PRIMARY KEY,
+    MemberID INT,
+    BookID INT,
+    LibrarianID INT,
+    BorrowDate DATE,
+    ReturnDate DATE,
+    FOREIGN KEY (MemberID) REFERENCES Members(MemberID),
+    FOREIGN KEY (BookID) REFERENCES Books(BookID),
+    FOREIGN KEY (LibrarianID) REFERENCES Librarians(LibrarianID)
+);
+```
+
+#### Librarians Table
+
+```sql
+CREATE TABLE Librarians (
+    LibrarianID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    EmployeeID VARCHAR(50),
+    WorkShifts TEXT
+);
+```
+
+#### Junction Table for Books-Authors (Many-to-Many Relationship)
+
+```sql
+CREATE TABLE BookAuthors (
+    BookID INT,
+    AuthorID INT,
+    PRIMARY KEY (BookID, AuthorID),
+    FOREIGN KEY (BookID) REFERENCES Books(BookID),
+    FOREIGN KEY (AuthorID) REFERENCES Authors(AuthorID)
+);
+```
+
+---
+
+### 2. **Queries to Insert Data:**
+
+#### Inserting a New Publisher
+
+```sql
+INSERT INTO Publishers (PublisherID, Name, Address)
+VALUES (1, 'Pearson', '123 Publishing St, City, Country');
+```
+
+#### Inserting a New Author
+
+```sql
+INSERT INTO Authors (AuthorID, Name, Bio)
+VALUES (1, 'John Doe', 'John Doe is a renowned author specializing in modern literature.');
+```
+
+#### Inserting a New Book
+
+```sql
+INSERT INTO Books (BookID, Title, PublisherID, YearPublished, Series, CategoryID)
+VALUES (1, 'Introduction to SQL', 1, 2024, 'SQL for Beginners', 1);
+```
+
+#### Inserting a New Member
+
+```sql
+INSERT INTO Members (MemberID, Name, Address, PhoneNumber, DateJoined, MembershipType, AnnualFee)
+VALUES (1, 'Alice Smith', '456 Library Lane, City, Country', '123-456-7890', '2024-01-01', 'Premium', 50.00);
+```
+
+#### Inserting a Transaction (Book Borrowing)
+
+```sql
+INSERT INTO Transactions (TransactionID, MemberID, BookID, LibrarianID, BorrowDate, ReturnDate)
+VALUES (1, 1, 1, 1, '2024-10-01', '2024-10-15');
+```
+
+#### Inserting a New Librarian
+
+```sql
+INSERT INTO Librarians (LibrarianID, Name, EmployeeID, WorkShifts)
+VALUES (1, 'Mark Johnson', 'L123', 'Mon-Fri 9am-5pm');
+```
+
+---
+
+### 3. **Queries for Relationship Management:**
+
+#### Assigning Authors to a Book (Many-to-Many Relationship)
+
+```sql
+INSERT INTO BookAuthors (BookID, AuthorID)
+VALUES (1, 1);  -- Book 1 is written by Author 1
+```
+
+#### Retrieving All Books by an Author
+
+```sql
+SELECT b.Title
+FROM Books b
+JOIN BookAuthors ba ON b.BookID = ba.BookID
+WHERE ba.AuthorID = 1;  -- Find all books written by Author 1
+```
+
+#### Retrieving All Authors for a Specific Book
+
+```sql
+SELECT a.Name
+FROM Authors a
+JOIN BookAuthors ba ON a.AuthorID = ba.AuthorID
+WHERE ba.BookID = 1;  -- Find all authors of Book 1
+```
+
+#### Retrieving All Books Borrowed by a Member
+
+```sql
+SELECT b.Title, t.BorrowDate, t.ReturnDate
+FROM Books b
+JOIN Transactions t ON b.BookID = t.BookID
+WHERE t.MemberID = 1;  -- Find all books borrowed by Member 1
+```
+
+#### Retrieving All Members Who Borrowed a Specific Book
+
+```sql
+SELECT m.Name, t.BorrowDate, t.ReturnDate
+FROM Members m
+JOIN Transactions t ON m.MemberID = t.MemberID
+WHERE t.BookID = 1;  -- Find all members who borrowed Book 1
+```
+
+#### Retrieving Overdue Books (Books not returned)
+
+```sql
+SELECT b.Title, t.MemberID, t.ReturnDate
+FROM Books b
+JOIN Transactions t ON b.BookID = t.BookID
+WHERE t.ReturnDate < CURDATE() AND t.ReturnDate IS NOT NULL;
+```
+
+#### Counting the Number of Transactions for a Member
+
+```sql
+SELECT COUNT(*) AS TransactionCount
+FROM Transactions
+WHERE MemberID = 1;  -- Count how many books Member 1 has borrowed
+```
+
+---
+
+### 4. **Queries for Business Logic (Borrowing Limits):**
+
+#### Checking Borrowing Limit Based on Membership Type (Assuming the system logic is implemented to limit transactions based on membership type)
+
+```sql
+SELECT
+    CASE
+        WHEN m.MembershipType = 'Premium' THEN 'Unlimited'
+        WHEN m.MembershipType = 'Regular' THEN '5 Books'
+    END AS BorrowingLimit
+FROM Members m
+WHERE m.MemberID = 1;  -- Check borrowing limit for Member 1
+```
+
+#### Retrieving Borrowed Books for a Regular Member to Enforce Borrowing Limit (Ensure they don't exceed the limit)
+
+```sql
+SELECT COUNT(*) AS BooksBorrowed
+FROM Transactions
+WHERE MemberID = 1 AND ReturnDate IS NULL;  -- Books currently borrowed by Member 1 (Not returned yet)
+```
+
+---
+
+### 5. **Indexes for Performance Optimization:**
+
+#### Creating Indexes on Foreign Keys (Improves JOIN performance)
+
+```sql
+CREATE INDEX idx_books_publisher_id ON Books(PublisherID);
+CREATE INDEX idx_books_category_id ON Books(CategoryID);
+CREATE INDEX idx_transactions_member_id ON Transactions(MemberID);
+CREATE INDEX idx_transactions_book_id ON Transactions(BookID);
+CREATE INDEX idx_transactions_librarian_id ON Transactions(LibrarianID);
+```
+
+#### Creating Index for Many-to-Many Relationship (Books-Authors)
+
+```sql
+CREATE INDEX idx_bookauthors_book_id ON BookAuthors(BookID);
+CREATE INDEX idx_bookauthors_author_id ON BookAuthors(AuthorID);
+```
+
+---

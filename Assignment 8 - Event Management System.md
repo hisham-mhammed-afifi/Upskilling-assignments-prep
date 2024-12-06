@@ -352,3 +352,226 @@ erDiagram
 
 
 ```
+
+---
+
+### SQL Queries for Event Management System
+
+Below are the SQL queries for managing the **Event Management System** based on the given ERD and relationships.
+
+---
+
+### 1. **Table Creation Queries**
+
+#### **Events Table**
+
+```sql
+CREATE TABLE Events (
+    Event_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Date DATE,
+    Location VARCHAR(255),
+    Capacity INT,
+    Sponsor_ID INT,
+    FOREIGN KEY (Sponsor_ID) REFERENCES Sponsors(Sponsor_ID)
+);
+```
+
+#### **Participants Table**
+
+```sql
+CREATE TABLE Participants (
+    Participant_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Contact_Information VARCHAR(255),
+    Payment_Status VARCHAR(50)  -- 'paid', 'pending', etc.
+);
+```
+
+#### **Registrations Table**
+
+```sql
+CREATE TABLE Registrations (
+    Registration_ID INT PRIMARY KEY,
+    Participant_ID INT,
+    Event_ID INT,
+    Payment_Status VARCHAR(50),
+    Team_ID INT,  -- FK to Teams table (optional)
+    FOREIGN KEY (Participant_ID) REFERENCES Participants(Participant_ID),
+    FOREIGN KEY (Event_ID) REFERENCES Events(Event_ID),
+    FOREIGN KEY (Team_ID) REFERENCES Teams(Team_ID)
+);
+```
+
+#### **Teams Table**
+
+```sql
+CREATE TABLE Teams (
+    Team_ID INT PRIMARY KEY,
+    Team_Name VARCHAR(255)
+);
+```
+
+#### **Speakers Table**
+
+```sql
+CREATE TABLE Speakers (
+    Speaker_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Topics TEXT,  -- Topics that the speaker will present
+    Schedule VARCHAR(255),  -- Timeslot for the speaker
+    Event_ID INT,
+    FOREIGN KEY (Event_ID) REFERENCES Events(Event_ID)
+);
+```
+
+#### **Venues Table**
+
+```sql
+CREATE TABLE Venues (
+    Venue_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Capacity INT,
+    Facilities TEXT,  -- Facilities available at the venue (e.g., A/C, Wi-Fi)
+    Booking_Status VARCHAR(50),  -- 'available', 'booked'
+    Event_ID INT,  -- FK to Events table
+    FOREIGN KEY (Event_ID) REFERENCES Events(Event_ID)
+);
+```
+
+#### **Sponsors Table**
+
+```sql
+CREATE TABLE Sponsors (
+    Sponsor_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Contribution_Amount DECIMAL(10, 2),
+    Sponsorship_Type VARCHAR(50)  -- 'gold', 'silver', etc.
+);
+```
+
+#### **Event_Sponsors Table (Many-to-Many Relationship)**
+
+```sql
+CREATE TABLE Event_Sponsors (
+    Event_ID INT,
+    Sponsor_ID INT,
+    Contribution_Amount DECIMAL(10, 2),
+    PRIMARY KEY (Event_ID, Sponsor_ID),
+    FOREIGN KEY (Event_ID) REFERENCES Events(Event_ID),
+    FOREIGN KEY (Sponsor_ID) REFERENCES Sponsors(Sponsor_ID)
+);
+```
+
+---
+
+### 2. **Handling Corner Cases**
+
+#### **1. Multiple Events per Participant**
+
+Querying participants who have registered for multiple events:
+
+```sql
+-- Query participants who have registered for more than one event
+SELECT p.Name, COUNT(r.Event_ID) AS Registered_Events
+FROM Participants p
+JOIN Registrations r ON p.Participant_ID = r.Participant_ID
+GROUP BY p.Participant_ID
+HAVING COUNT(r.Event_ID) > 1;
+```
+
+#### **2. Team-Based Registrations**
+
+Ensuring that all participants in a team are registered for the same event:
+
+```sql
+-- Query to check if all team members are registered for the same event
+SELECT t.Team_Name, e.Name AS Event_Name
+FROM Teams t
+JOIN Registrations r ON t.Team_ID = r.Team_ID
+JOIN Events e ON r.Event_ID = e.Event_ID
+GROUP BY t.Team_Name, e.Name
+HAVING COUNT(DISTINCT r.Event_ID) = 1;  -- Ensure all team members are registered for one event
+```
+
+#### **3. Booking Conflicts in Venues**
+
+Checking for booking conflicts in venues (i.e., ensuring a venue isn't double-booked):
+
+```sql
+-- Check if the venue is booked for the selected date/time
+SELECT v.Name AS Venue_Name, e.Name AS Event_Name, e.Date
+FROM Venues v
+JOIN Events e ON v.Event_ID = e.Event_ID
+WHERE v.Booking_Status = 'booked' AND e.Date = '2024-12-15';  -- Replace with the desired date
+```
+
+#### **4. Sponsor Contributions**
+
+Tracking the contribution of each sponsor for each event:
+
+```sql
+-- Get the contribution of each sponsor for a specific event
+SELECT s.Name AS Sponsor_Name, es.Contribution_Amount, e.Name AS Event_Name
+FROM Event_Sponsors es
+JOIN Sponsors s ON es.Sponsor_ID = s.Sponsor_ID
+JOIN Events e ON es.Event_ID = e.Event_ID
+WHERE e.Event_ID = 101;  -- Replace with the desired Event_ID
+```
+
+#### **5. Payment Status Tracking**
+
+Checking the payment status of participants for a specific event:
+
+```sql
+-- Track the payment status of all participants for a specific event
+SELECT p.Name, r.Payment_Status
+FROM Participants p
+JOIN Registrations r ON p.Participant_ID = r.Participant_ID
+WHERE r.Event_ID = 101;  -- Replace with the desired Event_ID
+```
+
+#### **6. Event Revenue Report**
+
+Generating an event revenue report that aggregates ticket sales and sponsor contributions:
+
+```sql
+-- Event revenue report (aggregate ticket sales + sponsor contributions)
+SELECT e.Name AS Event_Name,
+       SUM(CASE WHEN r.Payment_Status = 'paid' THEN 50 ELSE 0 END) AS Ticket_Sales,  -- Assuming each ticket is $50
+       SUM(es.Contribution_Amount) AS Sponsor_Contributions,
+       (SUM(CASE WHEN r.Payment_Status = 'paid' THEN 50 ELSE 0 END) + SUM(es.Contribution_Amount)) AS Total_Revenue
+FROM Events e
+LEFT JOIN Registrations r ON e.Event_ID = r.Event_ID
+LEFT JOIN Event_Sponsors es ON e.Event_ID = es.Event_ID
+GROUP BY e.Event_ID;
+```
+
+---
+
+### 3. **Reporting and Monitoring**
+
+#### **1. Report for Upcoming Events**
+
+Query to retrieve upcoming events:
+
+```sql
+-- Upcoming events (events scheduled after today)
+SELECT Name, Date, Location, Capacity
+FROM Events
+WHERE Date > CURDATE();
+```
+
+#### **2. Event Attendance**
+
+Calculating attendance for each event (i.e., how many participants are registered for each event):
+
+```sql
+-- Calculate attendance for each event
+SELECT e.Name AS Event_Name, COUNT(r.Participant_ID) AS Registered_Participants
+FROM Events e
+LEFT JOIN Registrations r ON e.Event_ID = r.Event_ID
+GROUP BY e.Event_ID;
+```
+
+---

@@ -484,3 +484,290 @@ erDiagram
     TEACHER ||--o{ PARTICIPANT : "participates"
 
 ```
+
+---
+
+### SQL Queries for the School Management System
+
+Based on the provided ERD, I will review the necessary SQL queries for table creation, managing relationships, and handling the corner cases. This includes defining primary keys, foreign keys, and ensuring referential integrity.
+
+---
+
+### 1. **Table Creation Queries**
+
+#### Student Table
+
+```sql
+CREATE TABLE Student (
+    Student_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Age INT,
+    Class_ID INT,
+    Enrollment_Date DATE,
+    FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID)
+);
+```
+
+#### Teacher Table
+
+```sql
+CREATE TABLE Teacher (
+    Teacher_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Subject_Specialization VARCHAR(255),
+    Phone_Number VARCHAR(20)
+);
+```
+
+#### Class Table
+
+```sql
+CREATE TABLE Class (
+    Class_ID INT PRIMARY KEY,
+    Class_Name VARCHAR(255),
+    Grade_Level INT
+);
+```
+
+#### Course Table
+
+```sql
+CREATE TABLE Course (
+    Course_ID INT PRIMARY KEY,
+    Course_Name VARCHAR(255),
+    Course_Description TEXT
+);
+```
+
+#### Section Table
+
+```sql
+CREATE TABLE Section (
+    Section_ID INT PRIMARY KEY,
+    Course_ID INT,
+    Teacher_ID INT,
+    FOREIGN KEY (Course_ID) REFERENCES Course(Course_ID),
+    FOREIGN KEY (Teacher_ID) REFERENCES Teacher(Teacher_ID)
+);
+```
+
+#### Enrollment Table (Many-to-Many Relationship between Student and Section)
+
+```sql
+CREATE TABLE Enrollment (
+    Enrollment_ID INT PRIMARY KEY,
+    Student_ID INT,
+    Section_ID INT,
+    Enrollment_Date DATE,
+    FOREIGN KEY (Student_ID) REFERENCES Student(Student_ID),
+    FOREIGN KEY (Section_ID) REFERENCES Section(Section_ID)
+);
+```
+
+#### Grade Table (Many-to-Many Relationship between Student and Course)
+
+```sql
+CREATE TABLE Grade (
+    Grade_ID INT PRIMARY KEY,
+    Student_ID INT,
+    Course_ID INT,
+    Grade_Value VARCHAR(10),
+    Date_Recorded DATE,
+    FOREIGN KEY (Student_ID) REFERENCES Student(Student_ID),
+    FOREIGN KEY (Course_ID) REFERENCES Course(Course_ID)
+);
+```
+
+#### Attendance Table (Many-to-Many Relationship between Student and Section)
+
+```sql
+CREATE TABLE Attendance (
+    Attendance_ID INT PRIMARY KEY,
+    Student_ID INT,
+    Section_ID INT,
+    Date DATE,
+    Status ENUM('Present', 'Absent', 'Late', 'Excused'),
+    FOREIGN KEY (Student_ID) REFERENCES Student(Student_ID),
+    FOREIGN KEY (Section_ID) REFERENCES Section(Section_ID)
+);
+```
+
+#### ExtracurricularActivity Table
+
+```sql
+CREATE TABLE ExtracurricularActivity (
+    Activity_ID INT PRIMARY KEY,
+    Activity_Name VARCHAR(255),
+    Description TEXT
+);
+```
+
+#### Participant Table (Many-to-Many Relationship between Students, Teachers, and ExtracurricularActivities)
+
+```sql
+CREATE TABLE Participant (
+    Participant_ID INT PRIMARY KEY,
+    Activity_ID INT,
+    Student_ID INT,
+    Teacher_ID INT,
+    FOREIGN KEY (Activity_ID) REFERENCES ExtracurricularActivity(Activity_ID),
+    FOREIGN KEY (Student_ID) REFERENCES Student(Student_ID),
+    FOREIGN KEY (Teacher_ID) REFERENCES Teacher(Teacher_ID)
+);
+```
+
+---
+
+### 2. **Corner Cases Handling**
+
+#### **1. Students with No Enrollments**
+
+Students can be created without an Enrollment record. This is handled by allowing `Enrollment` to be a separate entity, which may or may not have entries for each student.
+
+```sql
+-- Creating a student without any enrollments
+INSERT INTO Student (Student_ID, Name, Age, Class_ID, Enrollment_Date)
+VALUES (1, 'John Doe', 16, 101, '2023-09-01');
+```
+
+#### **2. Courses with No Sections**
+
+Courses can be created without any Sections. You can later add Sections to the course.
+
+```sql
+-- Creating a course without sections
+INSERT INTO Course (Course_ID, Course_Name, Course_Description)
+VALUES (1, 'Mathematics', 'Introduction to Algebra');
+```
+
+#### **3. Sections with No Students**
+
+A Section can exist even if no students are enrolled. This is managed by the `Enrollment` table linking students to sections.
+
+```sql
+-- Creating a section without any students enrolled
+INSERT INTO Section (Section_ID, Course_ID, Teacher_ID)
+VALUES (1, 1, 101);  -- Assuming Course_ID 1 and Teacher_ID 101 exist
+```
+
+#### **4. Teachers with Multiple Specializations**
+
+To handle teachers specializing in multiple subjects, a new `Subject` table can be introduced (optional).
+
+```sql
+-- Create a Subject table (if needed)
+CREATE TABLE Subject (
+    Subject_ID INT PRIMARY KEY,
+    Subject_Name VARCHAR(255)
+);
+
+-- Linking Teachers to Multiple Subjects (Many-to-Many)
+CREATE TABLE Teacher_Subject (
+    Teacher_ID INT,
+    Subject_ID INT,
+    PRIMARY KEY (Teacher_ID, Subject_ID),
+    FOREIGN KEY (Teacher_ID) REFERENCES Teacher(Teacher_ID),
+    FOREIGN KEY (Subject_ID) REFERENCES Subject(Subject_ID)
+);
+```
+
+#### **5. Participant Table for Extracurricular Activities**
+
+Teachers and Students can both be participants in extracurricular activities. `Student_ID` and `Teacher_ID` are nullable to allow both possibilities.
+
+```sql
+-- Creating a participant entry for a student
+INSERT INTO Participant (Participant_ID, Activity_ID, Student_ID, Teacher_ID)
+VALUES (1, 1, 1, NULL);  -- Student 1 participates in Activity 1
+
+-- Creating a participant entry for a teacher
+INSERT INTO Participant (Participant_ID, Activity_ID, Student_ID, Teacher_ID)
+VALUES (2, 1, NULL, 101);  -- Teacher 101 participates in Activity 1
+```
+
+#### **6. Grades Without Enrollment**
+
+Grades must be linked to both the `Student` and `Course` via the `Enrollment` table. You cannot assign a grade unless a student is enrolled in a section for that course.
+
+```sql
+-- Ensuring Grade Assignment is Only Possible If Enrollment Exists
+INSERT INTO Grade (Grade_ID, Student_ID, Course_ID, Grade_Value, Date_Recorded)
+SELECT 1, 1, 1, 'A', '2023-12-01'
+WHERE EXISTS (SELECT 1 FROM Enrollment WHERE Student_ID = 1 AND Section_ID IN (SELECT Section_ID FROM Section WHERE Course_ID = 1));
+```
+
+#### **7. Attendance Record for Non-Enrolled Students**
+
+Attendance records are only valid if the student is enrolled in the section. This can be enforced in the application logic or via triggers.
+
+```sql
+-- Insert Attendance Only for Enrolled Students
+INSERT INTO Attendance (Attendance_ID, Student_ID, Section_ID, Date, Status)
+SELECT 1, 1, 1, '2023-12-01', 'Present'
+WHERE EXISTS (SELECT 1 FROM Enrollment WHERE Student_ID = 1 AND Section_ID = 1);
+```
+
+#### **8. Handling Transfers or Drops**
+
+To handle student transfers, you can update the `Class_ID` and remove or add `Enrollments` based on the transfer.
+
+```sql
+-- Transfer Student to Another Class
+UPDATE Student
+SET Class_ID = 102
+WHERE Student_ID = 1;
+
+-- Update Enrollment for Transfer
+UPDATE Enrollment
+SET Section_ID = 2
+WHERE Student_ID = 1 AND Section_ID = 1;
+```
+
+#### **9. Self-Referencing for Teachers (Mentorship)**
+
+If needed, create a `Mentor_ID` column to allow self-referencing in the `Teacher` table.
+
+```sql
+ALTER TABLE Teacher
+ADD COLUMN Mentor_ID INT,
+ADD FOREIGN KEY (Mentor_ID) REFERENCES Teacher(Teacher_ID);
+```
+
+---
+
+### 3. **Additional Queries**
+
+#### Get All Students in a Class
+
+```sql
+SELECT * FROM Student WHERE Class_ID = 101;
+```
+
+#### Get All Students in a Section
+
+```sql
+SELECT s.Student_ID, s.Name
+FROM Student s
+JOIN Enrollment e ON s.Student_ID = e.Student_ID
+WHERE e.Section_ID = 1;
+```
+
+#### Get Grades for a Student in All Courses
+
+```sql
+SELECT c.Course_Name, g.Grade_Value
+FROM Grade g
+JOIN Course c ON g.Course_ID = c.Course_ID
+WHERE g.Student_ID = 1;
+```
+
+#### Get Attendance for a Student in All Sections
+
+```sql
+SELECT sec.Section_ID, a.Date, a.Status
+FROM Attendance a
+JOIN Section sec ON a.Section_ID = sec.Section_ID
+WHERE a.Student_ID = 1;
+```
+
+---

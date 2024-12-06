@@ -403,3 +403,309 @@ erDiagram
     REPORT }|--o{ SUPPLIER : "aggregation"
 
 ```
+
+---
+
+### SQL Queries for the Online Store Management System
+
+Below are the SQL queries necessary for creating the tables, establishing the relationships, and handling specific use cases outlined in the ERD. I've included queries for table creation, inserting data, managing relationships, and corner case scenarios.
+
+---
+
+### 1. **Table Creation Queries:**
+
+#### Product Table
+
+```sql
+CREATE TABLE Product (
+    Product_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Price DECIMAL(10, 2),
+    Stock_Quantity INT,
+    Category_ID INT,
+    Description TEXT,
+    FOREIGN KEY (Category_ID) REFERENCES Category(Category_ID)
+);
+```
+
+#### Variant Table
+
+```sql
+CREATE TABLE Variant (
+    Variant_ID INT PRIMARY KEY,
+    Product_ID INT,
+    Variant_Type VARCHAR(255),  -- Example: Size, Color
+    Variant_Value VARCHAR(255),  -- Example: Small, Blue
+    Stock_Quantity INT,
+    FOREIGN KEY (Product_ID) REFERENCES Product(Product_ID)
+);
+```
+
+#### Category Table
+
+```sql
+CREATE TABLE Category (
+    Category_ID INT PRIMARY KEY,
+    Category_Name VARCHAR(255),
+    Parent_Category_ID INT,
+    FOREIGN KEY (Parent_Category_ID) REFERENCES Category(Category_ID)
+);
+```
+
+#### Supplier Table
+
+```sql
+CREATE TABLE Supplier (
+    Supplier_ID INT PRIMARY KEY,
+    Supplier_Name VARCHAR(255),
+    Contact_Info TEXT,
+    Region VARCHAR(255)
+);
+```
+
+#### Product-Supplier Junction Table (Many-to-Many Relationship)
+
+```sql
+CREATE TABLE Product_Supplier (
+    Product_ID INT,
+    Supplier_ID INT,
+    PRIMARY KEY (Product_ID, Supplier_ID),
+    FOREIGN KEY (Product_ID) REFERENCES Product(Product_ID),
+    FOREIGN KEY (Supplier_ID) REFERENCES Supplier(Supplier_ID)
+);
+```
+
+#### Customer Table
+
+```sql
+CREATE TABLE Customer (
+    Customer_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Email VARCHAR(255),
+    Phone VARCHAR(20),
+    Address TEXT
+);
+```
+
+#### Order Table
+
+```sql
+CREATE TABLE `Order` (
+    Order_ID INT PRIMARY KEY,
+    Customer_ID INT,
+    Order_Date DATE,
+    Total_Amount DECIMAL(10, 2),
+    Payment_Status ENUM('Paid', 'Pending', 'Failed'),
+    Order_Status ENUM('Pending', 'Shipped', 'Delivered'),
+    FOREIGN KEY (Customer_ID) REFERENCES Customer(Customer_ID)
+);
+```
+
+#### Order_Products Junction Table (Many-to-Many Relationship)
+
+```sql
+CREATE TABLE Order_Products (
+    Order_ID INT,
+    Product_ID INT,
+    Quantity INT,
+    Price_at_Purchase DECIMAL(10, 2),
+    PRIMARY KEY (Order_ID, Product_ID),
+    FOREIGN KEY (Order_ID) REFERENCES `Order`(Order_ID),
+    FOREIGN KEY (Product_ID) REFERENCES Product(Product_ID)
+);
+```
+
+#### Payment Table
+
+```sql
+CREATE TABLE Payment (
+    Payment_ID INT PRIMARY KEY,
+    Order_ID INT,
+    Payment_Method ENUM('Credit Card', 'PayPal', 'Other'),
+    Payment_Status ENUM('Paid', 'Pending', 'Failed'),
+    Payment_Date DATE,
+    FOREIGN KEY (Order_ID) REFERENCES `Order`(Order_ID)
+);
+```
+
+#### Delivery Table
+
+```sql
+CREATE TABLE Delivery (
+    Delivery_ID INT PRIMARY KEY,
+    Order_ID INT,
+    Shipping_Company VARCHAR(255),
+    Tracking_Number VARCHAR(255),
+    Expected_Delivery_Date DATE,
+    Actual_Delivery_Date DATE,
+    FOREIGN KEY (Order_ID) REFERENCES `Order`(Order_ID)
+);
+```
+
+#### Report Table
+
+```sql
+CREATE TABLE Report (
+    Report_ID INT PRIMARY KEY,
+    Report_Type ENUM('Top-Selling', 'Pending Orders', 'Supplier Performance'),
+    Report_Date DATE,
+    Report_Data TEXT
+);
+```
+
+---
+
+### 2. **Queries to Insert Data:**
+
+#### Inserting a New Category
+
+```sql
+INSERT INTO Category (Category_ID, Category_Name, Parent_Category_ID)
+VALUES (1, 'Electronics', NULL);  -- No parent category for main category
+```
+
+#### Inserting a New Product
+
+```sql
+INSERT INTO Product (Product_ID, Name, Price, Stock_Quantity, Category_ID, Description)
+VALUES (1, 'Smartphone', 699.99, 50, 1, 'A high-end smartphone with 128GB storage');
+```
+
+#### Inserting a New Variant for a Product
+
+```sql
+INSERT INTO Variant (Variant_ID, Product_ID, Variant_Type, Variant_Value, Stock_Quantity)
+VALUES (1, 1, 'Color', 'Black', 30);  -- Black color variant for Smartphone
+```
+
+#### Inserting a New Supplier
+
+```sql
+INSERT INTO Supplier (Supplier_ID, Supplier_Name, Contact_Info, Region)
+VALUES (1, 'ABC Electronics', 'contact@abcelectronics.com', 'North America');
+```
+
+#### Linking a Product with a Supplier (Many-to-Many)
+
+```sql
+INSERT INTO Product_Supplier (Product_ID, Supplier_ID)
+VALUES (1, 1);  -- Product 1 is supplied by Supplier 1
+```
+
+#### Inserting a New Customer
+
+```sql
+INSERT INTO Customer (Customer_ID, Name, Email, Phone, Address)
+VALUES (1, 'John Doe', 'johndoe@example.com', '555-1234', '123 Main St, City, Country');
+```
+
+#### Inserting a New Order
+
+```sql
+INSERT INTO `Order` (Order_ID, Customer_ID, Order_Date, Total_Amount, Payment_Status, Order_Status)
+VALUES (1, 1, '2024-10-01', 1399.97, 'Pending', 'Pending');
+```
+
+#### Linking Products to an Order (Order-Product)
+
+```sql
+INSERT INTO Order_Products (Order_ID, Product_ID, Quantity, Price_at_Purchase)
+VALUES (1, 1, 1, 699.99);  -- Order 1 contains 1 Smartphone
+```
+
+#### Inserting a Payment Record
+
+```sql
+INSERT INTO Payment (Payment_ID, Order_ID, Payment_Method, Payment_Status, Payment_Date)
+VALUES (1, 1, 'Credit Card', 'Pending', '2024-10-01');
+```
+
+#### Inserting Delivery Information
+
+```sql
+INSERT INTO Delivery (Delivery_ID, Order_ID, Shipping_Company, Tracking_Number, Expected_Delivery_Date, Actual_Delivery_Date)
+VALUES (1, 1, 'FedEx', '123456789', '2024-10-05', NULL);
+```
+
+---
+
+### 3. **Queries for Relationship Management:**
+
+#### Retrieving All Products in a Category
+
+```sql
+SELECT p.Name
+FROM Product p
+JOIN Category c ON p.Category_ID = c.Category_ID
+WHERE c.Category_Name = 'Electronics';  -- Find all products in the 'Electronics' category
+```
+
+#### Retrieving All Variants for a Product
+
+```sql
+SELECT v.Variant_Type, v.Variant_Value
+FROM Variant v
+WHERE v.Product_ID = 1;  -- Find all variants for Product 1
+```
+
+#### Retrieving All Suppliers for a Product
+
+```sql
+SELECT s.Supplier_Name
+FROM Supplier s
+JOIN Product_Supplier ps ON s.Supplier_ID = ps.Supplier_ID
+WHERE ps.Product_ID = 1;  -- Find all suppliers for Product 1
+```
+
+#### Retrieving All Orders by a Customer
+
+```sql
+SELECT o.Order_ID, o.Order_Date, o.Total_Amount, o.Payment_Status, o.Order_Status
+FROM `Order` o
+WHERE o.Customer_ID = 1;  -- Find all orders placed by Customer 1
+```
+
+#### Retrieving Payment Status for an Order
+
+```sql
+SELECT p.Payment_Status
+FROM Payment p
+WHERE p.Order_ID = 1;  -- Find payment status for Order 1
+```
+
+#### Retrieving Delivery Information for an Order
+
+```sql
+SELECT d.Shipping_Company, d.Tracking_Number, d.Expected_Delivery_Date, d.Actual_Delivery_Date
+FROM Delivery d
+WHERE d.Order_ID = 1;  -- Find delivery info for Order 1
+```
+
+---
+
+### 4. **Handling Corner Cases:**
+
+#### Creating a Product Without Variants
+
+The system should allow you to insert a product even if there are no variants associated with it. This can be done by simply skipping the variant insertion.
+
+#### Removing a Supplier from Products
+
+In case a supplier goes out of business, you can delete the supplier and their product relationships.
+
+```sql
+DELETE FROM Product_Supplier WHERE Supplier_ID = 1;  -- Remove supplier-product relationships
+DELETE FROM Supplier WHERE Supplier_ID = 1;  -- Delete the supplier
+```
+
+#### Updating Stock Quantity After Order
+
+The stock quantity should be updated after an order is placed. For example, when Product 1 is ordered, reduce its stock:
+
+```sql
+UPDATE Product
+SET Stock_Quantity = Stock_Quantity - 1
+WHERE Product_ID = 1;  -- Reduce stock for Product 1
+```
+
+---

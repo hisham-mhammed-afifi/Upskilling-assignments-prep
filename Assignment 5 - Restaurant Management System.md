@@ -267,3 +267,246 @@ erDiagram
 
 
 ```
+
+---
+
+### SQL Queries for Restaurant Management System
+
+Based on the provided ERD, I will define the necessary SQL queries for creating tables, handling relationships, and addressing the corner cases.
+
+---
+
+### 1. **Table Creation Queries**
+
+#### **Customers Table**
+
+```sql
+CREATE TABLE Customers (
+    Customer_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Contact_Info VARCHAR(255),  -- Store both phone and email as a single field or separate fields
+    Preferences VARCHAR(255)    -- Store preferences like vegetarian, allergies, seating preferences
+);
+```
+
+#### **Tables Table**
+
+```sql
+CREATE TABLE Tables (
+    Table_ID INT PRIMARY KEY,
+    Number_of_Seats INT,
+    Location ENUM('indoor', 'outdoor'),
+    Reservation_Status ENUM('available', 'reserved')
+);
+```
+
+#### **Orders Table**
+
+```sql
+CREATE TABLE Orders (
+    Order_ID INT PRIMARY KEY,
+    Table_ID INT,
+    Customer_ID INT,
+    Staff_ID INT,
+    Order_Status ENUM('pending', 'in progress', 'served'),
+    Order_Date_Time DATETIME,
+    FOREIGN KEY (Table_ID) REFERENCES Tables(Table_ID),
+    FOREIGN KEY (Customer_ID) REFERENCES Customers(Customer_ID),
+    FOREIGN KEY (Staff_ID) REFERENCES Staff(Staff_ID)
+);
+```
+
+#### **Menu Table**
+
+```sql
+CREATE TABLE Menu (
+    Menu_Item_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Category VARCHAR(255),   -- E.g., Appetizer, Main Course, Desserts
+    Price DECIMAL(10, 2)
+);
+```
+
+#### **Ingredients Table**
+
+```sql
+CREATE TABLE Ingredients (
+    Ingredient_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Quantity_in_stock INT,
+    Restock_Threshold INT
+);
+```
+
+#### **Staff Table**
+
+```sql
+CREATE TABLE Staff (
+    Staff_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Role ENUM('waiter', 'chef', 'manager'),
+    Shift_Schedule TEXT
+);
+```
+
+#### **Reservations Table**
+
+```sql
+CREATE TABLE Reservations (
+    Reservation_ID INT PRIMARY KEY,
+    Customer_ID INT,
+    Table_ID INT,
+    Reservation_Date_Time DATETIME,
+    Status ENUM('confirmed', 'pending', 'canceled'),
+    Special_Requests TEXT,
+    FOREIGN KEY (Customer_ID) REFERENCES Customers(Customer_ID),
+    FOREIGN KEY (Table_ID) REFERENCES Tables(Table_ID)
+);
+```
+
+#### **Join Table for Menu Items and Categories**
+
+Since a menu item can belong to multiple categories, we need a many-to-many relationship between `Menu` and `Categories`. Assuming `Category` is a separate table (not defined in the original ERD, but inferred from the context), here's how to structure it.
+
+```sql
+CREATE TABLE Categories (
+    Category_ID INT PRIMARY KEY,
+    Category_Name VARCHAR(255)
+);
+
+CREATE TABLE Menu_Categories (
+    Menu_Item_ID INT,
+    Category_ID INT,
+    PRIMARY KEY (Menu_Item_ID, Category_ID),
+    FOREIGN KEY (Menu_Item_ID) REFERENCES Menu(Menu_Item_ID),
+    FOREIGN KEY (Category_ID) REFERENCES Categories(Category_ID)
+);
+```
+
+#### **Join Table for Menu Items and Ingredients**
+
+Since a menu item may use many ingredients, here's the many-to-many relationship between `Menu` and `Ingredients`.
+
+```sql
+CREATE TABLE Menu_Ingredients (
+    Menu_Item_ID INT,
+    Ingredient_ID INT,
+    Quantity_used INT,
+    PRIMARY KEY (Menu_Item_ID, Ingredient_ID),
+    FOREIGN KEY (Menu_Item_ID) REFERENCES Menu(Menu_Item_ID),
+    FOREIGN KEY (Ingredient_ID) REFERENCES Ingredients(Ingredient_ID)
+);
+```
+
+---
+
+### 2. **Corner Case Handling**
+
+#### **1. Table Overlap (Preventing Double Booking)**
+
+To ensure that no table is reserved for more than one customer at the same time, we can check if a table is already reserved for a given time slot.
+
+```sql
+-- Check if a table is available at a specific time slot
+SELECT * FROM Reservations
+WHERE Table_ID = 1
+  AND Reservation_Date_Time = '2024-12-15 19:00:00'
+  AND Status = 'confirmed';
+-- If no rows are returned, the table is available for booking.
+```
+
+#### **2. Ingredient Stock Management**
+
+When an order is placed, the ingredients used in the ordered menu items should be deducted from the stock. If the stock goes below the restock threshold, an alert should be triggered.
+
+```sql
+-- Deduct ingredient stock for each menu item in an order
+UPDATE Ingredients
+SET Quantity_in_stock = Quantity_in_stock - 2  -- Assuming 2 units of the ingredient are used
+WHERE Ingredient_ID = 101;
+
+-- Check if any ingredients need restocking
+SELECT * FROM Ingredients
+WHERE Quantity_in_stock <= Restock_Threshold;
+```
+
+#### **3. Staff Schedule Conflicts**
+
+To prevent assigning a staff member to multiple orders during the same shift, you can check if the staff member is already handling another order during the same time.
+
+```sql
+-- Check for schedule conflicts for a staff member
+SELECT * FROM Orders
+WHERE Staff_ID = 5
+  AND Order_Date_Time BETWEEN '2024-12-15 18:00:00' AND '2024-12-15 21:00:00';
+-- If no rows are returned, the staff member is available.
+```
+
+#### **4. Customer Preferences (Menu Filtering)**
+
+When a customer has preferences (e.g., vegetarian or allergies), the system can filter the menu to show only relevant items.
+
+```sql
+-- Example: Filtering the menu based on vegetarian preference
+SELECT * FROM Menu
+WHERE Category = 'Main Course'
+  AND Name NOT LIKE '%meat%'   -- Exclude non-vegetarian items
+  AND Price < 20.00;           -- Example additional filter based on price
+```
+
+#### **5. Order Status Tracking**
+
+To track multiple statuses for orders (e.g., from "pending" to "served"), update the order status at each step. Here's how to update the status:
+
+```sql
+-- Update the order status as it progresses
+UPDATE Orders
+SET Order_Status = 'served'
+WHERE Order_ID = 1001;
+```
+
+#### **6. Reservation Conflicts**
+
+Ensure that no two reservations overlap for the same table. The reservation table already handles this, but here's how to check for conflicts.
+
+```sql
+-- Check if a table is already reserved for a specific time
+SELECT * FROM Reservations
+WHERE Table_ID = 3
+  AND Reservation_Date_Time = '2024-12-15 20:00:00'
+  AND Status = 'confirmed';
+-- If no rows are returned, the table is available for booking.
+```
+
+---
+
+### 3. **Handling Ingredient Shortages and Alerts**
+
+#### **Ingredient Shortage Alert**
+
+This query can be used to monitor ingredients that are running low and need to be restocked.
+
+```sql
+-- Get a list of ingredients that are below the restock threshold
+SELECT Ingredient_ID, Name, Quantity_in_stock
+FROM Ingredients
+WHERE Quantity_in_stock <= Restock_Threshold;
+```
+
+#### **Dynamic Ingredient Usage During Orders**
+
+For each order, ingredients used in the menu items should be deducted, and alerts should trigger if any ingredient is running low.
+
+```sql
+-- Example: Deduct ingredients when an order is placed
+UPDATE Ingredients
+SET Quantity_in_stock = Quantity_in_stock - 1
+WHERE Ingredient_ID = 1   -- Assuming Ingredient_ID = 1 is used in the order
+AND Quantity_in_stock > 0;
+
+-- Alert if stock goes below the threshold
+SELECT * FROM Ingredients
+WHERE Quantity_in_stock <= Restock_Threshold;
+```
+
+---

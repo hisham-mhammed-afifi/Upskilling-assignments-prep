@@ -298,3 +298,231 @@ erDiagram
 
 
 ```
+
+---
+
+### SQL Queries for the Hospital Management System
+
+Based on the provided ERD, I will define SQL queries for creating the necessary tables and handling the relationships.
+
+---
+
+### 1. **Table Creation Queries**
+
+#### **Patients Table**
+
+```sql
+CREATE TABLE Patients (
+    Patient_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Age INT,
+    Admission_Date DATE,
+    Medical_History TEXT,
+    Allergies TEXT
+);
+```
+
+#### **Doctors Table**
+
+```sql
+CREATE TABLE Doctors (
+    Doctor_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Specialization VARCHAR(255),
+    Availability TEXT,
+    Phone_Number VARCHAR(20)
+);
+```
+
+#### **Departments Table**
+
+```sql
+CREATE TABLE Departments (
+    Department_ID INT PRIMARY KEY,
+    Department_Name VARCHAR(255),
+    Head_Doctor INT,
+    Schedule TEXT,
+    FOREIGN KEY (Head_Doctor) REFERENCES Doctors(Doctor_ID)
+);
+```
+
+#### **Rooms Table**
+
+```sql
+CREATE TABLE Rooms (
+    Room_ID INT PRIMARY KEY,
+    Room_Type VARCHAR(50),   -- ICU, General, etc.
+    Availability ENUM('Occupied', 'Free'),
+    Assigned_Patient_ID INT,
+    FOREIGN KEY (Assigned_Patient_ID) REFERENCES Patients(Patient_ID)
+);
+```
+
+#### **Appointments Table**
+
+```sql
+CREATE TABLE Appointments (
+    Appointment_ID INT PRIMARY KEY,
+    Patient_ID INT,
+    Doctor_ID INT,
+    Date DATE,
+    Time TIME,
+    Room_ID INT,
+    Tests TEXT,
+    Prescriptions TEXT,
+    FOREIGN KEY (Patient_ID) REFERENCES Patients(Patient_ID),
+    FOREIGN KEY (Doctor_ID) REFERENCES Doctors(Doctor_ID),
+    FOREIGN KEY (Room_ID) REFERENCES Rooms(Room_ID)
+);
+```
+
+#### **Prescriptions Table**
+
+```sql
+CREATE TABLE Prescriptions (
+    Prescription_ID INT PRIMARY KEY,
+    Appointment_ID INT,
+    Medication VARCHAR(255),
+    Dosage VARCHAR(255),
+    FOREIGN KEY (Appointment_ID) REFERENCES Appointments(Appointment_ID)
+);
+```
+
+#### **Tests Table**
+
+```sql
+CREATE TABLE Tests (
+    Test_ID INT PRIMARY KEY,
+    Appointment_ID INT,
+    Test_Type VARCHAR(255),
+    Test_Result TEXT,
+    FOREIGN KEY (Appointment_ID) REFERENCES Appointments(Appointment_ID)
+);
+```
+
+#### **Doctor-Department Assignment Table (Many-to-Many Relationship)**
+
+```sql
+CREATE TABLE Doctor_Department_Assignment (
+    Assignment_ID INT PRIMARY KEY,
+    Doctor_ID INT,
+    Department_ID INT,
+    FOREIGN KEY (Doctor_ID) REFERENCES Doctors(Doctor_ID),
+    FOREIGN KEY (Department_ID) REFERENCES Departments(Department_ID)
+);
+```
+
+#### **Room-Patient Many-to-Many Relationship (Junction Table)**
+
+Since a patient can occupy multiple rooms over time and rooms can house different patients at different times, a junction table for the many-to-many relationship between `Patients` and `Rooms` is required.
+
+```sql
+CREATE TABLE Patient_Rooms (
+    Patient_ID INT,
+    Room_ID INT,
+    Admission_Date DATE,
+    Discharge_Date DATE,
+    PRIMARY KEY (Patient_ID, Room_ID, Admission_Date),
+    FOREIGN KEY (Patient_ID) REFERENCES Patients(Patient_ID),
+    FOREIGN KEY (Room_ID) REFERENCES Rooms(Room_ID)
+);
+```
+
+---
+
+### 2. **Corner Cases Handling**
+
+#### **1. Overbooking of Doctors**
+
+Ensure that a doctor can't have multiple appointments at the same time. This can be handled by enforcing availability checks before inserting a new appointment. If a doctor already has an appointment at the scheduled time, the system will reject the new appointment.
+
+```sql
+-- Example of preventing overbooking by checking availability
+SELECT * FROM Appointments
+WHERE Doctor_ID = 1
+  AND Date = '2024-12-15'
+  AND Time = '10:00:00';
+-- If no results, the appointment can be scheduled.
+```
+
+#### **2. Room Assignment Conflicts**
+
+Ensure that rooms cannot be assigned to more than one patient at the same time. Rooms must be marked as "Occupied" when a patient is assigned, and only "Free" rooms should be available for new appointments.
+
+```sql
+-- Check room availability before scheduling an appointment
+SELECT * FROM Rooms
+WHERE Room_ID = 101
+  AND Availability = 'Free';
+-- If no results, the room cannot be assigned.
+```
+
+#### **3. Doctors in Multiple Departments**
+
+Doctors can belong to multiple departments. The `Doctor_Department_Assignment` table handles this many-to-many relationship.
+
+```sql
+-- Assign a doctor to multiple departments
+INSERT INTO Doctor_Department_Assignment (Doctor_ID, Department_ID)
+VALUES (1, 101), (1, 102);
+```
+
+#### **4. Appointment Flexibility**
+
+Allow patients to reschedule or cancel appointments. When rescheduling, update the `Appointments` table with new `Date` and `Time` values. For cancellations, the appointment can either be deleted or marked as "Cancelled."
+
+```sql
+-- Reschedule an appointment
+UPDATE Appointments
+SET Date = '2024-12-20', Time = '14:00:00'
+WHERE Appointment_ID = 1001;
+
+-- Cancel an appointment
+UPDATE Appointments
+SET Status = 'Cancelled'
+WHERE Appointment_ID = 1001;
+```
+
+#### **5. Prescription Management**
+
+If prescriptions need to be updated or canceled, modify the `Prescriptions` table. Each prescription is tied to a specific `Appointment_ID`.
+
+```sql
+-- Update a prescription
+UPDATE Prescriptions
+SET Medication = 'Ibuprofen', Dosage = '200mg'
+WHERE Prescription_ID = 2001;
+
+-- Cancel a prescription (set medication to null or delete)
+UPDATE Prescriptions
+SET Medication = NULL, Dosage = NULL
+WHERE Prescription_ID = 2001;
+```
+
+#### **6. Test Management**
+
+Tests can be added, updated, or removed for an appointment. Similarly, make sure to handle the relationship between `Tests` and `Appointments` via the `Appointment_ID`.
+
+```sql
+-- Add a test to an appointment
+INSERT INTO Tests (Appointment_ID, Test_Type, Test_Result)
+VALUES (1001, 'Blood Test', 'Normal');
+
+-- Update a test result
+UPDATE Tests
+SET Test_Result = 'High Blood Sugar'
+WHERE Test_ID = 3001;
+
+-- Remove a test record
+DELETE FROM Tests
+WHERE Test_ID = 3001;
+```
+
+---
+
+### 3. **Data Integrity**
+
+- **Foreign Key Constraints:** All the relationships are enforced via foreign key constraints (e.g., between `Appointments` and `Doctors`, `Prescriptions` and `Appointments`, etc.).
+- **Availability Checks:** Ensure that rooms are not double-booked and doctors are not overbooked by checking availability before inserting new records.
+
+---

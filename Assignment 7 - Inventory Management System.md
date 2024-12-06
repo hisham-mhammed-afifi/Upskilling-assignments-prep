@@ -343,3 +343,251 @@ erDiagram
     SALES_TRANSACTIONS ||--o| DISCOUNTS_PROMOTIONS : "applies"
 
 ```
+
+---
+
+### SQL Queries for Store Inventory, Supplier, and Sales Management System
+
+Below are the SQL queries based on your ERD and relationships. These queries include table creation, handling relationships, and managing corner cases.
+
+---
+
+### 1. **Table Creation Queries**
+
+#### **Products Table**
+
+```sql
+CREATE TABLE Products (
+    Product_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Category_ID INT,
+    Price DECIMAL(10, 2),
+    Stock_Quantity INT,
+    ReorderLevel INT,
+    FOREIGN KEY (Category_ID) REFERENCES Categories(Category_ID)
+);
+```
+
+#### **Categories Table**
+
+```sql
+CREATE TABLE Categories (
+    Category_ID INT PRIMARY KEY,
+    CategoryName VARCHAR(255)
+);
+```
+
+#### **Suppliers Table**
+
+```sql
+CREATE TABLE Suppliers (
+    Supplier_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Contact_Information TEXT,
+    Dateof_Last_Restock DATE
+);
+```
+
+#### **Suppliers_Products Table (Many-to-Many Relationship)**
+
+```sql
+CREATE TABLE Suppliers_Products (
+    Supplier_ID INT,
+    Product_ID INT,
+    PRIMARY KEY (Supplier_ID, Product_ID),
+    FOREIGN KEY (Supplier_ID) REFERENCES Suppliers(Supplier_ID),
+    FOREIGN KEY (Product_ID) REFERENCES Products(Product_ID)
+);
+```
+
+#### **Customers Table**
+
+```sql
+CREATE TABLE Customers (
+    Customer_ID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Contact_Information TEXT
+);
+```
+
+#### **Purchase History Table (Links Customers and Products)**
+
+```sql
+CREATE TABLE Purchase_History (
+    Purchase_ID INT PRIMARY KEY,
+    Customer_ID INT,
+    Product_ID INT,
+    Quantity INT,
+    Date_of_Purchase DATE,
+    TotalCost DECIMAL(10, 2),
+    FOREIGN KEY (Customer_ID) REFERENCES Customers(Customer_ID),
+    FOREIGN KEY (Product_ID) REFERENCES Products(Product_ID)
+);
+```
+
+#### **Sales Transactions Table**
+
+```sql
+CREATE TABLE Sales_Transactions (
+    Transaction_ID INT PRIMARY KEY,
+    Date DATE,
+    Customer_ID INT,
+    Total_Cost DECIMAL(10, 2),
+    DiscountApplied DECIMAL(10, 2),
+    FOREIGN KEY (Customer_ID) REFERENCES Customers(Customer_ID)
+);
+```
+
+#### **Discounts/Promotions Table**
+
+```sql
+CREATE TABLE Discounts (
+    Discount_ID INT PRIMARY KEY,
+    Product_ID INT,
+    Discount_Type VARCHAR(50),
+    Discount_Value DECIMAL(10, 2),
+    Start_Date DATE,
+    End_Date DATE,
+    FOREIGN KEY (Product_ID) REFERENCES Products(Product_ID)
+);
+```
+
+#### **Reports Table (Query-Driven, for storing metadata)**
+
+```sql
+CREATE TABLE Reports (
+    ReportID INT PRIMARY KEY,
+    ReportType VARCHAR(50),
+    DateGenerated DATE,
+    ReportData TEXT
+);
+```
+
+---
+
+### 2. **Handling Corner Cases**
+
+#### **1. Room Availability and Stock Alerts**
+
+To track stock levels and trigger alerts for products that fall below the reorder level:
+
+```sql
+-- Check products below reorder level
+SELECT Product_ID, Name, Stock_Quantity, ReorderLevel
+FROM Products
+WHERE Stock_Quantity <= ReorderLevel;
+```
+
+#### **2. Handling Many-to-Many Relationships (Suppliers and Products)**
+
+Inserting or querying a product-supplier relationship:
+
+```sql
+-- Insert a relationship between a product and a supplier
+INSERT INTO Suppliers_Products (Supplier_ID, Product_ID)
+VALUES (1, 101);
+
+-- Query all products supplied by a specific supplier
+SELECT p.Name
+FROM Products p
+JOIN Suppliers_Products sp ON p.Product_ID = sp.Product_ID
+WHERE sp.Supplier_ID = 1;
+```
+
+#### **3. Handling Sales Transactions and Discounts**
+
+Tracking sales transactions and applying discounts to products:
+
+```sql
+-- Insert a sale transaction for a customer
+INSERT INTO Sales_Transactions (Transaction_ID, Date, Customer_ID, Total_Cost, DiscountApplied)
+VALUES (1, '2024-12-05', 2, 500.00, 50.00);
+
+-- Apply discounts to products during sales transaction
+UPDATE Sales_Transactions
+SET Total_Cost = Total_Cost - DiscountApplied
+WHERE Transaction_ID = 1;
+
+-- Query sales transactions including discounts
+SELECT st.Transaction_ID, st.Total_Cost, st.DiscountApplied, p.Name
+FROM Sales_Transactions st
+JOIN Purchase_History ph ON st.Transaction_ID = ph.Purchase_ID
+JOIN Products p ON ph.Product_ID = p.Product_ID
+WHERE st.Transaction_ID = 1;
+```
+
+#### **4. Handling Purchase History for Customers**
+
+Tracking customer purchase history:
+
+```sql
+-- Query the purchase history of a customer
+SELECT ph.Purchase_ID, p.Name, ph.Quantity, ph.TotalCost, ph.Date_of_Purchase
+FROM Purchase_History ph
+JOIN Products p ON ph.Product_ID = p.Product_ID
+WHERE ph.Customer_ID = 2;
+
+-- Calculate total purchases for a customer
+SELECT SUM(ph.TotalCost) AS TotalSpent
+FROM Purchase_History ph
+WHERE ph.Customer_ID = 2;
+```
+
+#### **5. Supplier Restock Management**
+
+Tracking the last restock date and ensuring timely supply chain management:
+
+```sql
+-- Query suppliers and the products they provide
+SELECT s.Name, p.Name, sp.Supplier_ID, sp.Product_ID
+FROM Suppliers s
+JOIN Suppliers_Products sp ON s.Supplier_ID = sp.Supplier_ID
+JOIN Products p ON sp.Product_ID = p.Product_ID
+WHERE s.Dateof_Last_Restock < '2024-11-01';
+
+-- Update the restock date after a supplier delivers products
+UPDATE Suppliers
+SET Dateof_Last_Restock = '2024-12-01'
+WHERE Supplier_ID = 1;
+```
+
+---
+
+### 3. **Report Generation Queries**
+
+These reports can be generated dynamically using SQL, or stored in the `Reports` table.
+
+#### **Product Sales Report (Top-Selling Products)**
+
+```sql
+SELECT p.Name, SUM(ph.Quantity) AS TotalSold
+FROM Products p
+JOIN Purchase_History ph ON p.Product_ID = ph.Product_ID
+GROUP BY p.Name
+ORDER BY TotalSold DESC;
+```
+
+#### **Revenue Report**
+
+```sql
+SELECT SUM(Total_Cost) AS TotalRevenue
+FROM Sales_Transactions;
+```
+
+#### **Stock Alert Report (Low-Stock Products)**
+
+```sql
+SELECT p.Name, p.Stock_Quantity, p.ReorderLevel
+FROM Products p
+WHERE p.Stock_Quantity <= p.ReorderLevel;
+```
+
+#### **Discount Report**
+
+```sql
+SELECT p.Name, d.Discount_Value, d.Start_Date, d.End_Date
+FROM Discounts d
+JOIN Products p ON d.Product_ID = p.Product_ID;
+```
+
+---

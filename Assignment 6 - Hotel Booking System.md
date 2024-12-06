@@ -272,3 +272,220 @@ erDiagram
     REPORTS }|--o{ BOOKINGS : "summarizes"
 
 ```
+
+---
+
+### SQL Queries for Hotel Management System
+
+Based on the provided ERD, I'll write the SQL queries for table creation, relationships, and corner cases handling.
+
+---
+
+### 1. **Table Creation Queries**
+
+#### **Guests Table**
+
+```sql
+CREATE TABLE Guests (
+    GuestID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Email VARCHAR(255) UNIQUE,
+    PhoneNumber VARCHAR(20),
+    Preferences TEXT,
+    BookingHistory TEXT -- This can be a derived field or join-based if needed later
+);
+```
+
+#### **Rooms Table**
+
+```sql
+CREATE TABLE Rooms (
+    RoomID INT PRIMARY KEY,
+    RoomType ENUM('Single', 'Double', 'Suite'),
+    PricePerNight DECIMAL(10, 2),
+    FloorNumber INT,
+    AvailabilityStatus ENUM('Available', 'Booked'),
+    BookingID INT, -- Link to Bookings for historical purposes (foreign key)
+    FOREIGN KEY (BookingID) REFERENCES Bookings(BookingID)
+);
+```
+
+#### **Bookings Table**
+
+```sql
+CREATE TABLE Bookings (
+    BookingID INT PRIMARY KEY,
+    GuestID INT,
+    RoomID INT,
+    CheckInDate DATETIME,
+    CheckOutDate DATETIME,
+    PaymentStatus ENUM('Paid', 'Pending'),
+    SpecialRequests TEXT,
+    BookingStatus ENUM('Confirmed', 'Canceled', 'Completed'),
+    FOREIGN KEY (GuestID) REFERENCES Guests(GuestID),
+    FOREIGN KEY (RoomID) REFERENCES Rooms(RoomID)
+);
+```
+
+#### **Services Table**
+
+```sql
+CREATE TABLE Services (
+    ServiceID INT PRIMARY KEY,
+    BookingID INT,
+    ServiceType ENUM('Room Service', 'Spa', 'Tour'),
+    ServiceDate DATETIME,
+    Cost DECIMAL(10, 2),
+    ServiceStatus ENUM('Pending', 'Completed', 'Canceled'),
+    FOREIGN KEY (BookingID) REFERENCES Bookings(BookingID)
+);
+```
+
+#### **Staff Table**
+
+```sql
+CREATE TABLE Staff (
+    StaffID INT PRIMARY KEY,
+    Name VARCHAR(255),
+    Role ENUM('Housekeeping', 'Receptionist', 'Manager'),
+    Schedule TEXT,
+    RoleBasedAccess ENUM('Admin', 'User')
+);
+```
+
+#### **Reports Table (Virtual/Dervied Data)**
+
+Reports will be generated using SQL queries or stored procedures depending on the system's reporting tools. This table could store metadata for generated reports.
+
+```sql
+CREATE TABLE Reports (
+    ReportID INT PRIMARY KEY,
+    ReportType ENUM('Occupancy', 'Revenue', 'Guest Preferences'),
+    DateGenerated DATETIME,
+    ReportData TEXT -- Stores a summary of the report data
+);
+```
+
+---
+
+### 2. **Handling Corner Cases**
+
+#### **1. Room Availability (Preventing Overbooking)**
+
+To prevent overbooking, we need to check if a room is available at the desired time. A booking can only be confirmed if the room is available for the check-in and check-out dates.
+
+```sql
+-- Check room availability before confirming a booking
+SELECT * FROM Rooms
+WHERE RoomID = 101
+  AND AvailabilityStatus = 'Available'
+  AND RoomID NOT IN (
+    SELECT RoomID FROM Bookings
+    WHERE (CheckInDate BETWEEN '2024-12-15' AND '2024-12-18')
+      OR (CheckOutDate BETWEEN '2024-12-15' AND '2024-12-18')
+  );
+-- If no rows are returned, the room is not available
+```
+
+#### **2. Handling Multiple Bookings for the Same Guest**
+
+When a guest books a room multiple times, we need to ensure that their booking history is updated properly.
+
+```sql
+-- Insert a new booking and update the guest’s booking history (if needed)
+INSERT INTO Bookings (GuestID, RoomID, CheckInDate, CheckOutDate, PaymentStatus, SpecialRequests, BookingStatus)
+VALUES (1, 101, '2024-12-15 14:00:00', '2024-12-18 11:00:00', 'Pending', 'Non-smoking', 'Confirmed');
+
+-- Optionally, you can store guest booking history in a separate log or column.
+-- For instance, you can append new booking data to a booking history field, or store it in a separate table.
+UPDATE Guests
+SET BookingHistory = CONCAT(BookingHistory, ', BookingID: ', LAST_INSERT_ID())
+WHERE GuestID = 1;
+```
+
+#### **3. Service Availability (Preventing Overbooking of Services)**
+
+To handle service availability, we must ensure that services like "Spa" or "Tour" do not exceed capacity. Assuming there's a capacity field for each service type:
+
+```sql
+-- Check availability for a service before adding it to a booking
+SELECT * FROM Services
+WHERE ServiceType = 'Spa'
+  AND ServiceDate = '2024-12-16 10:00:00'
+  AND (SELECT COUNT(*) FROM Services WHERE ServiceType = 'Spa' AND ServiceDate = '2024-12-16 10:00:00') < 5; -- Assume max 5 services can be booked at this time
+-- If no rows are returned, the service can be booked
+```
+
+#### **4. Handling Cancellations**
+
+When a booking is canceled, the room should be marked as available, and any associated services should also be canceled. Here's how to handle cancellations:
+
+```sql
+-- Mark the room as available when the booking is canceled
+UPDATE Rooms
+SET AvailabilityStatus = 'Available'
+WHERE RoomID IN (SELECT RoomID FROM Bookings WHERE BookingID = 101);
+
+-- Mark services as canceled when the booking is canceled
+UPDATE Services
+SET ServiceStatus = 'Canceled'
+WHERE BookingID = 101;
+
+-- Update the booking status
+UPDATE Bookings
+SET BookingStatus = 'Canceled'
+WHERE BookingID = 101;
+```
+
+#### **5. Role-Based Access (Handling Staff Permissions)**
+
+To ensure that staff have different access levels based on their roles, you can query the staff table to filter access according to the role. For example:
+
+```sql
+-- Example: Only managers or admins can view certain reports
+SELECT * FROM Reports
+WHERE ReportType = 'Revenue'
+  AND EXISTS (SELECT 1 FROM Staff WHERE StaffID = 1 AND Role = 'Manager' AND RoleBasedAccess = 'Admin');
+-- If the staff member has the correct role, the report will be retrieved
+```
+
+---
+
+### 3. **Reporting Queries**
+
+#### **Occupancy Report**
+
+To generate an occupancy report, you would typically query the `Bookings` and `Rooms` tables to calculate the occupancy rate for each room or for the entire hotel.
+
+```sql
+-- Example: Generate an occupancy report for a specific date range
+SELECT r.RoomType, COUNT(b.BookingID) AS BookedRooms, COUNT(r.RoomID) AS TotalRooms,
+       (COUNT(b.BookingID) / COUNT(r.RoomID)) * 100 AS OccupancyRate
+FROM Rooms r
+LEFT JOIN Bookings b ON r.RoomID = b.RoomID
+WHERE b.CheckInDate BETWEEN '2024-12-01' AND '2024-12-31'
+GROUP BY r.RoomType;
+```
+
+#### **Revenue Report**
+
+To generate a revenue report based on bookings, you can sum the `PricePerNight` of rooms booked during a given period.
+
+```sql
+-- Example: Generate a revenue report for a specific date range
+SELECT SUM(r.PricePerNight * DATEDIFF(b.CheckOutDate, b.CheckInDate)) AS TotalRevenue
+FROM Rooms r
+JOIN Bookings b ON r.RoomID = b.RoomID
+WHERE b.CheckInDate BETWEEN '2024-12-01' AND '2024-12-31'
+  AND b.BookingStatus = 'Completed';
+```
+
+---
+
+### Final Notes:
+
+- Ensure that **foreign key constraints** are properly defined to maintain data integrity between tables.
+- **Triggers or Stored Procedures** can be used to automate tasks like updating availability, generating reports, or handling cancellations and overbookings.
+- **Indexes** should be created on frequently queried fields (e.g., `BookingID`, `GuestID`, `RoomID`, etc.) to optimize query performance.
+
+---
