@@ -313,3 +313,93 @@ The client is starting an online store and requires a system to manage the entir
 8. **Report Data Integrity**: Ensure reports like "Top-Selling Products" or "Pending Orders" reflect real-time data, with accurate aggregations and timely generation.
 
 ---
+
+```mermaid
+
+erDiagram
+    PRODUCT {
+        int Product_ID PK
+        string Name
+        float Price
+        int Stock_Quantity
+        int Category_ID FK
+        string Description
+    }
+    VARIANT {
+        int Variant_ID PK
+        int Product_ID FK
+        string Variant_Type
+        string Variant_Value
+        int Stock_Quantity
+    }
+    CATEGORY {
+        int Category_ID PK
+        string Category_Name
+        int Parent_Category_ID FK
+    }
+    SUPPLIER {
+        int Supplier_ID PK
+        string Supplier_Name
+        string Contact_Info
+        string Region
+    }
+    CUSTOMER {
+        int Customer_ID PK
+        string Name
+        string Email
+        string Phone
+        string Address
+    }
+    ORDER {
+        int Order_ID PK
+        int Customer_ID FK
+        date Order_Date
+        float Total_Amount
+        string Payment_Status
+        string Order_Status
+    }
+    ORDER_PRODUCTS {
+        int Order_ID FK
+        int Product_ID FK
+        int Quantity
+        float Price_at_Purchase
+    }
+    PAYMENT {
+        int Payment_ID PK
+        int Order_ID FK
+        string Payment_Method
+        string Payment_Status
+        date Payment_Date
+    }
+    DELIVERY {
+        int Delivery_ID PK
+        int Order_ID FK
+        string Shipping_Company
+        string Tracking_Number
+        date Expected_Delivery_Date
+        date Actual_Delivery_Date
+    }
+    REPORT {
+        int Report_ID PK
+        string Report_Type
+        date Report_Date
+        string Report_Data
+    }
+
+    PRODUCT ||--o{ VARIANT : "one-to-many"
+    PRODUCT }|--o{ SUPPLIER : "many-to-many"
+    PRODUCT }|--o{ CATEGORY : "many-to-one"
+    CATEGORY ||--o{ PRODUCT : "one-to-many"
+    CUSTOMER ||--o{ ORDER : "one-to-many"
+    ORDER ||--o{ ORDER_PRODUCTS : "one-to-many"
+    ORDER }|--o{ PAYMENT : "one-to-one"
+    ORDER }|--o{ DELIVERY : "one-to-one"
+    ORDER_PRODUCTS }|--o{ PRODUCT : "many-to-one"
+    ORDER_PRODUCTS }|--o{ ORDER : "many-to-one"
+    PAYMENT }|--o{ ORDER : "one-to-one"
+    DELIVERY }|--o{ ORDER : "one-to-one"
+    REPORT }|--o{ ORDER : "aggregation"
+    REPORT }|--o{ PRODUCT : "aggregation"
+    REPORT }|--o{ SUPPLIER : "aggregation"
+
+```

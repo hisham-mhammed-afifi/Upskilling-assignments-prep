@@ -129,8 +129,6 @@ The client operates a library and is seeking a system to manage various library 
 
 ---
 
----
-
 ### ERD Design for Library Management System
 
 **Entities and Attributes**:
@@ -271,3 +269,65 @@ The ERD will include the following tables and relationships:
   - Relationship: One-to-many with `Transactions`.
 
 ---
+
+```mermaid
+
+erDiagram
+    BOOKS {
+        int BookID PK
+        string Title
+        int PublisherID FK
+        int YearPublished
+        string Series
+    }
+    AUTHORS {
+        int AuthorID PK
+        string Name
+        string Bio
+    }
+    PUBLISHERS {
+        int PublisherID PK
+        string Name
+        string Address
+    }
+    CATEGORIES {
+        int CategoryID PK
+        string CategoryName
+    }
+    MEMBERS {
+        int MemberID PK
+        string Name
+        string Address
+        string PhoneNumber
+        date DateJoined
+        string MembershipType
+        float AnnualFee
+    }
+    TRANSACTIONS {
+        int TransactionID PK
+        int MemberID FK
+        int BookID FK
+        int LibrarianID FK
+        date BorrowDate
+        date ReturnDate
+    }
+    LIBRARIANS {
+        int LibrarianID PK
+        string Name
+        string EmployeeID
+        string WorkShifts
+    }
+
+    BOOKS ||--o{ AUTHORS : "many-to-many"
+    BOOKS }|--o{ CATEGORIES : "one-to-many"
+    BOOKS }|--o{ TRANSACTIONS : "one-to-many"
+    AUTHORS }|--o{ BOOKS : "many-to-many"
+    PUBLISHERS ||--o{ BOOKS : "one-to-many"
+    CATEGORIES ||--o{ BOOKS : "one-to-many"
+    MEMBERS ||--o{ TRANSACTIONS : "one-to-many"
+    TRANSACTIONS }|--o{ BOOKS : "many-to-one"
+    TRANSACTIONS }|--o{ MEMBERS : "many-to-one"
+    TRANSACTIONS }|--o{ LIBRARIANS : "many-to-one"
+    LIBRARIANS ||--o{ TRANSACTIONS : "one-to-many"
+
+```

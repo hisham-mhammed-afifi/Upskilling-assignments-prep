@@ -405,3 +405,82 @@ To better visualize the ERD, here's a textual outline of the primary relationshi
    - Each **Student** belongs to one **Class**.
 
 ---
+
+```mermaid
+
+erDiagram
+    STUDENT {
+        int Student_ID PK
+        string Name
+        int Age
+        int Class_ID FK
+        date Enrollment_Date
+    }
+    TEACHER {
+        int Teacher_ID PK
+        string Name
+        string Subject_Specialization
+        string Phone_Number
+    }
+    CLASS {
+        int Class_ID PK
+        string Class_Name
+        string Grade_Level
+    }
+    COURSE {
+        int Course_ID PK
+        string Course_Name
+        string Course_Description
+    }
+    SECTION {
+        int Section_ID PK
+        int Course_ID FK
+        int Teacher_ID FK
+    }
+    ENROLLMENT {
+        int Enrollment_ID PK
+        int Student_ID FK
+        int Section_ID FK
+        date Enrollment_Date
+    }
+    GRADE {
+        int Grade_ID PK
+        int Student_ID FK
+        int Course_ID FK
+        float Grade_Value
+        date Date_Recorded
+    }
+    ATTENDANCE {
+        int Attendance_ID PK
+        int Student_ID FK
+        int Section_ID FK
+        date Date
+        string Status
+    }
+    EXTRACURRICULARACTIVITY {
+        int Activity_ID PK
+        string Activity_Name
+        string Description
+    }
+    PARTICIPANT {
+        int Participant_ID PK
+        int Activity_ID FK
+        int Student_ID FK
+        int Teacher_ID FK
+    }
+
+    STUDENT }|--o{ CLASS : "belongs to"
+    TEACHER }|--o{ SECTION : "manages"
+    CLASS ||--o{ STUDENT : "has"
+    COURSE ||--o{ SECTION : "has"
+    SECTION }|--o{ ENROLLMENT : "includes"
+    STUDENT }|--o{ ENROLLMENT : "enrolled in"
+    STUDENT ||--o{ GRADE : "receives"
+    COURSE ||--o{ GRADE : "pertains to"
+    STUDENT }|--o{ ATTENDANCE : "has"
+    SECTION ||--o{ ATTENDANCE : "records"
+    EXTRACURRICULARACTIVITY ||--o{ PARTICIPANT : "includes"
+    STUDENT ||--o{ PARTICIPANT : "participates"
+    TEACHER ||--o{ PARTICIPANT : "participates"
+
+```
