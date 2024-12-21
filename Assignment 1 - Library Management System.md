@@ -595,3 +595,697 @@ CREATE INDEX idx_bookauthors_author_id ON BookAuthors(AuthorID);
 ```
 
 ---
+
+## OOP Representaion:
+
+---
+
+## 1. Data Models
+
+### Category
+
+- A **one-to-many** relationship exists between categories and books (one category can be assigned to many books, and each book can have multiple categories).
+- However, we will store categories in a `List<Category>` inside a `Book` for simplicity (many-to-many approach is also possible if you choose to store categories differently).
+
+```csharp
+public class Category
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+
+    public Category(int id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    // For better readability
+    public override string ToString() => Name;
+}
+```
+
+### Author
+
+- A **many-to-many** relationship: one author can write multiple books, and one book can have multiple authors.
+
+```csharp
+public class Author
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+
+    public Author(int id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    public override string ToString() => Name;
+}
+```
+
+### Publisher
+
+- A **one-to-many** relationship: one publisher can publish multiple books, but each book has exactly one publisher.
+
+```csharp
+public class Publisher
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Address { get; set; }
+
+    public Publisher(int id, string name, string address)
+    {
+        Id = id;
+        Name = name;
+        Address = address;
+    }
+
+    public override string ToString() => Name;
+}
+```
+
+### Book
+
+- Tracks the publisher (one-to-many relationship).
+- Can have multiple authors (many-to-many).
+- Can have multiple categories (one-to-many, or many-to-many with a bridging entity, depending on your preference).
+
+```csharp
+public class Book
+{
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public Publisher Publisher { get; set; }
+    public int YearPublished { get; set; }
+    public string Series { get; set; }
+
+    // Many-to-many: A book can have multiple authors
+    public List<Author> Authors { get; set; } = new List<Author>();
+
+    // Many-to-many or one-to-many: A book can have multiple categories
+    public List<Category> Categories { get; set; } = new List<Category>();
+
+    public Book(int id, string title, Publisher publisher, int yearPublished, string series)
+    {
+        Id = id;
+        Title = title;
+        Publisher = publisher;
+        YearPublished = yearPublished;
+        Series = series;
+    }
+
+    public override string ToString()
+    {
+        return $"{Title} ({YearPublished})";
+    }
+}
+```
+
+---
+
+## 2. Members and Librarians
+
+### Base Member Class
+
+- Stores common fields: `Name`, `Address`, `PhoneNumber`, `DateJoined`.
+- Defines an abstract `BorrowLimit` property to differentiate regular from premium members.
+
+```csharp
+public abstract class Member
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Address { get; set; }
+    public string PhoneNumber { get; set; }
+    public DateTime DateJoined { get; set; }
+
+    // The number of books a member can borrow at once
+    public abstract int BorrowLimit { get; }
+
+    protected Member(int id, string name, string address, string phoneNumber, DateTime dateJoined)
+    {
+        Id = id;
+        Name = name;
+        Address = address;
+        PhoneNumber = phoneNumber;
+        DateJoined = dateJoined;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id})";
+    }
+}
+```
+
+### Regular Member
+
+- Inherits from `Member`.
+- Has a fixed borrow limit (e.g., `5`).
+
+```csharp
+public class RegularMember : Member
+{
+    public override int BorrowLimit => 5;
+
+    public RegularMember(int id, string name, string address, string phoneNumber, DateTime dateJoined)
+        : base(id, name, address, phoneNumber, dateJoined)
+    {
+    }
+}
+```
+
+### Premium Member
+
+- Also inherits from `Member`.
+- Higher borrow limit (e.g., `10`) and an annual fee attribute.
+
+```csharp
+public class PremiumMember : Member
+{
+    public override int BorrowLimit => 10;
+    public decimal AnnualFee { get; set; }
+
+    public PremiumMember(int id, string name, string address, string phoneNumber, DateTime dateJoined, decimal annualFee)
+        : base(id, name, address, phoneNumber, dateJoined)
+    {
+        AnnualFee = annualFee;
+    }
+}
+```
+
+### Librarian
+
+- Stores librarian-specific details: `EmployeeId`, `WorkShifts`.
+- Responsible for facilitating transactions (we’ll see an example usage later).
+
+```csharp
+public class Librarian
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string EmployeeId { get; set; }
+    public string WorkShifts { get; set; } // E.g., "Morning Shift", "Evening Shift"
+
+    public Librarian(int id, string name, string employeeId, string workShifts)
+    {
+        Id = id;
+        Name = name;
+        EmployeeId = employeeId;
+        WorkShifts = workShifts;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (Employee ID: {EmployeeId})";
+    }
+}
+```
+
+---
+
+## 3. Borrowing Transactions
+
+### Transaction
+
+- Tracks which book was borrowed, by which member, under which librarian, plus the dates.
+- `BorrowDate` and `ReturnDate` (if returned).
+
+```csharp
+public class BorrowTransaction
+{
+    public int Id { get; set; }
+    public Book Book { get; set; }
+    public Member Member { get; set; }
+    public Librarian Librarian { get; set; }
+    public DateTime BorrowDate { get; set; }
+    public DateTime? ReturnDate { get; set; } // Nullable, if not returned yet
+
+    public BorrowTransaction(int id, Book book, Member member, Librarian librarian)
+    {
+        Id = id;
+        Book = book;
+        Member = member;
+        Librarian = librarian;
+        BorrowDate = DateTime.Now;
+    }
+
+    public void ReturnBook()
+    {
+        ReturnDate = DateTime.Now;
+    }
+}
+```
+
+---
+
+## 4. Repositories (In-Memory for Demonstration)
+
+We’ll create simple in-memory repositories to handle CRUD operations. In a real system, these might be EF Core repositories or similar database-backed services.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+```
+
+### BookRepository
+
+```csharp
+public class BookRepository : IRepository<Book>
+{
+    private readonly List<Book> _books = new List<Book>();
+
+    public void Add(Book entity)
+    {
+        _books.Add(entity);
+    }
+
+    public Book GetById(int id)
+    {
+        return _books.FirstOrDefault(b => b.Id == id);
+    }
+
+    public IEnumerable<Book> GetAll()
+    {
+        return _books;
+    }
+
+    public void Update(Book entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Title = entity.Title;
+            existing.Publisher = entity.Publisher;
+            existing.YearPublished = entity.YearPublished;
+            existing.Series = entity.Series;
+            existing.Authors = entity.Authors;
+            existing.Categories = entity.Categories;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var book = GetById(id);
+        if (book != null)
+        {
+            _books.Remove(book);
+        }
+    }
+}
+```
+
+### MemberRepository
+
+```csharp
+public class MemberRepository : IRepository<Member>
+{
+    private readonly List<Member> _members = new List<Member>();
+
+    public void Add(Member entity)
+    {
+        _members.Add(entity);
+    }
+
+    public Member GetById(int id)
+    {
+        return _members.FirstOrDefault(m => m.Id == id);
+    }
+
+    public IEnumerable<Member> GetAll()
+    {
+        return _members;
+    }
+
+    public void Update(Member entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.Address = entity.Address;
+            existing.PhoneNumber = entity.PhoneNumber;
+            existing.DateJoined = entity.DateJoined;
+            // If PremiumMember or RegularMember, handle accordingly
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var member = GetById(id);
+        if (member != null)
+        {
+            _members.Remove(member);
+        }
+    }
+}
+```
+
+### LibrarianRepository
+
+```csharp
+public class LibrarianRepository : IRepository<Librarian>
+{
+    private readonly List<Librarian> _librarians = new List<Librarian>();
+
+    public void Add(Librarian entity)
+    {
+        _librarians.Add(entity);
+    }
+
+    public Librarian GetById(int id)
+    {
+        return _librarians.FirstOrDefault(l => l.Id == id);
+    }
+
+    public IEnumerable<Librarian> GetAll()
+    {
+        return _librarians;
+    }
+
+    public void Update(Librarian entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.EmployeeId = entity.EmployeeId;
+            existing.WorkShifts = entity.WorkShifts;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var librarian = GetById(id);
+        if (librarian != null)
+        {
+            _librarians.Remove(librarian);
+        }
+    }
+}
+```
+
+### TransactionRepository
+
+```csharp
+public class TransactionRepository : IRepository<BorrowTransaction>
+{
+    private readonly List<BorrowTransaction> _transactions = new List<BorrowTransaction>();
+
+    public void Add(BorrowTransaction entity)
+    {
+        _transactions.Add(entity);
+    }
+
+    public BorrowTransaction GetById(int id)
+    {
+        return _transactions.FirstOrDefault(t => t.Id == id);
+    }
+
+    public IEnumerable<BorrowTransaction> GetAll()
+    {
+        return _transactions;
+    }
+
+    public void Update(BorrowTransaction entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Book = entity.Book;
+            existing.Member = entity.Member;
+            existing.Librarian = entity.Librarian;
+            existing.BorrowDate = entity.BorrowDate;
+            existing.ReturnDate = entity.ReturnDate;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var transaction = GetById(id);
+        if (transaction != null)
+        {
+            _transactions.Remove(transaction);
+        }
+    }
+}
+```
+
+---
+
+## 5. Core Library System Service
+
+A service class that orchestrates borrowing, returning, and reporting logic. This helps keep logic out of repositories (which are purely data-access oriented).
+
+```csharp
+public class LibraryService
+{
+    private readonly IRepository<Book> _bookRepo;
+    private readonly IRepository<Member> _memberRepo;
+    private readonly IRepository<Librarian> _librarianRepo;
+    private readonly IRepository<BorrowTransaction> _transactionRepo;
+
+    public LibraryService(
+        IRepository<Book> bookRepo,
+        IRepository<Member> memberRepo,
+        IRepository<Librarian> librarianRepo,
+        IRepository<BorrowTransaction> transactionRepo)
+    {
+        _bookRepo = bookRepo;
+        _memberRepo = memberRepo;
+        _librarianRepo = librarianRepo;
+        _transactionRepo = transactionRepo;
+    }
+
+    /// <summary>
+    /// Facilitates the borrowing of a book by a member under a specific librarian.
+    /// Checks borrowing limits and throws an exception if exceeded.
+    /// </summary>
+    public void BorrowBook(int bookId, int memberId, int librarianId)
+    {
+        var book = _bookRepo.GetById(bookId);
+        var member = _memberRepo.GetById(memberId);
+        var librarian = _librarianRepo.GetById(librarianId);
+
+        if (book == null) throw new Exception("Book not found.");
+        if (member == null) throw new Exception("Member not found.");
+        if (librarian == null) throw new Exception("Librarian not found.");
+
+        // Check how many active transactions the member currently has
+        var activeBorrows = _transactionRepo.GetAll()
+            .Count(t => t.Member.Id == memberId && t.ReturnDate == null);
+
+        if (activeBorrows >= member.BorrowLimit)
+        {
+            throw new Exception($"Member has reached the borrowing limit of {member.BorrowLimit}.");
+        }
+
+        // Create a new transaction
+        var transaction = new BorrowTransaction(
+            id: GenerateTransactionId(),
+            book: book,
+            member: member,
+            librarian: librarian
+        );
+
+        _transactionRepo.Add(transaction);
+        Console.WriteLine(
+            $"Book '{book.Title}' borrowed by '{member.Name}' on {transaction.BorrowDate} facilitated by '{librarian.Name}'."
+        );
+    }
+
+    /// <summary>
+    /// Facilitates the returning of a book.
+    /// </summary>
+    public void ReturnBook(int transactionId)
+    {
+        var transaction = _transactionRepo.GetById(transactionId);
+        if (transaction == null) throw new Exception("Transaction not found.");
+
+        if (transaction.ReturnDate == null)
+        {
+            transaction.ReturnBook();
+            _transactionRepo.Update(transaction);
+            Console.WriteLine(
+                $"Book '{transaction.Book.Title}' returned by '{transaction.Member.Name}' on {transaction.ReturnDate.Value}."
+            );
+        }
+        else
+        {
+            Console.WriteLine("Book is already returned.");
+        }
+    }
+
+    /// <summary>
+    /// Generates an ID for transaction. In a real application, this might be DB-generated.
+    /// </summary>
+    private int GenerateTransactionId()
+    {
+        // In a real system, IDs often come from identity columns or GUIDs.
+        // Here, we can just pick the next increment.
+        var allTransactions = _transactionRepo.GetAll();
+        return allTransactions.Any() ? allTransactions.Max(t => t.Id) + 1 : 1;
+    }
+
+    // -------------------------
+    // Reporting / Query Methods
+    // -------------------------
+
+    /// <summary>
+    /// Report: Most borrowed books over all time (or could filter by date range).
+    /// </summary>
+    public List<(Book Book, int BorrowCount)> GetMostBorrowedBooks(int top = 5)
+    {
+        var grouped = _transactionRepo.GetAll()
+            .GroupBy(t => t.Book)
+            .Select(g => new { Book = g.Key, BorrowCount = g.Count() })
+            .OrderByDescending(x => x.BorrowCount)
+            .Take(top)
+            .Select(x => (x.Book, x.BorrowCount))
+            .ToList();
+
+        return grouped;
+    }
+
+    /// <summary>
+    /// Report: Most active members by number of borrow transactions.
+    /// </summary>
+    public List<(Member Member, int BorrowCount)> GetMostActiveMembers(int top = 5)
+    {
+        var grouped = _transactionRepo.GetAll()
+            .GroupBy(t => t.Member)
+            .Select(g => new { Member = g.Key, BorrowCount = g.Count() })
+            .OrderByDescending(x => x.BorrowCount)
+            .Take(top)
+            .Select(x => (x.Member, x.BorrowCount))
+            .ToList();
+
+        return grouped;
+    }
+
+    /// <summary>
+    /// Report: Transactions managed by a specific librarian.
+    /// </summary>
+    public List<BorrowTransaction> GetTransactionsByLibrarian(int librarianId)
+    {
+        return _transactionRepo.GetAll()
+            .Where(t => t.Librarian.Id == librarianId)
+            .ToList();
+    }
+}
+```
+
+---
+
+## 6. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create repositories
+        var bookRepo = new BookRepository();
+        var memberRepo = new MemberRepository();
+        var librarianRepo = new LibrarianRepository();
+        var transactionRepo = new TransactionRepository();
+
+        // Create the service
+        var libraryService = new LibraryService(bookRepo, memberRepo, librarianRepo, transactionRepo);
+
+        // Seed data
+        SeedData(bookRepo, memberRepo, librarianRepo);
+
+        // 1) Borrow Book Scenario
+        libraryService.BorrowBook(bookId: 1, memberId: 101, librarianId: 201); // Book #1 borrowed by member #101
+        libraryService.BorrowBook(bookId: 2, memberId: 102, librarianId: 201); // Book #2 borrowed by member #102
+
+        // 2) Return Book Scenario
+        //   Suppose the transaction for (bookId=1, memberId=101) is transactionId=1
+        libraryService.ReturnBook(transactionId: 1); // Return book #1
+
+        // 3) Generate Reports
+        var topBorrowedBooks = libraryService.GetMostBorrowedBooks(5);
+        Console.WriteLine("\n--- Most Borrowed Books ---");
+        foreach (var entry in topBorrowedBooks)
+        {
+            Console.WriteLine($"{entry.Book.Title} - Borrowed {entry.BorrowCount} time(s).");
+        }
+
+        var topActiveMembers = libraryService.GetMostActiveMembers(5);
+        Console.WriteLine("\n--- Most Active Members ---");
+        foreach (var entry in topActiveMembers)
+        {
+            Console.WriteLine($"{entry.Member.Name} - {entry.BorrowCount} borrowings.");
+        }
+
+        var librarianTransactions = libraryService.GetTransactionsByLibrarian(librarianId: 201);
+        Console.WriteLine("\n--- Transactions by Librarian 201 ---");
+        foreach (var tx in librarianTransactions)
+        {
+            Console.WriteLine($"TX#{tx.Id}: Book '{tx.Book.Title}', Member '{tx.Member.Name}', BorrowDate = {tx.BorrowDate}, Returned = {tx.ReturnDate != null}");
+        }
+    }
+
+    private static void SeedData(IRepository<Book> bookRepo, IRepository<Member> memberRepo, IRepository<Librarian> librarianRepo)
+    {
+        // Publishers
+        var pub1 = new Publisher(1, "Penguin Random House", "Address A");
+        var pub2 = new Publisher(2, "HarperCollins", "Address B");
+
+        // Authors
+        var author1 = new Author(1, "George Orwell");
+        var author2 = new Author(2, "Jane Austen");
+
+        // Categories
+        var catFiction = new Category(1, "Fiction");
+        var catScience = new Category(2, "Science");
+
+        // Books
+        var book1 = new Book(1, "1984", pub1, 1949, "Dystopian Series");
+        book1.Authors.Add(author1);
+        book1.Categories.Add(catFiction);
+
+        var book2 = new Book(2, "Pride and Prejudice", pub2, 1813, "Romance Series");
+        book2.Authors.Add(author2);
+        book2.Categories.Add(catFiction);
+
+        // Add books to repository
+        bookRepo.Add(book1);
+        bookRepo.Add(book2);
+
+        // Members
+        var regMember = new RegularMember(101, "Alice Johnson", "123 Main St", "555-1234", DateTime.Today.AddYears(-2));
+        var premiumMember = new PremiumMember(102, "Bob Smith", "456 Elm St", "555-5678", DateTime.Today.AddYears(-1), annualFee: 99.99m);
+
+        memberRepo.Add(regMember);
+        memberRepo.Add(premiumMember);
+
+        // Librarians
+        var librarian = new Librarian(201, "John Librarian", "EMP001", "Morning Shift");
+        librarianRepo.Add(librarian);
+    }
+}
+```
+
+### Explanation of the Flow
+
+1. **Seeding Data**: We create some publishers, authors, categories, books, members (both **Regular** and **Premium**), and a librarian. This is purely for demonstration.
+2. **Borrowing a Book**:
+   - The `LibraryService.BorrowBook` method checks the member’s current active borrow count, compares it to their `BorrowLimit`, and throws an exception if exceeded. Otherwise, it creates a new `BorrowTransaction`.
+3. **Returning a Book**:
+   - The `LibraryService.ReturnBook` method marks the transaction as returned by setting the `ReturnDate`.
+4. **Reporting**:
+   - **Most Borrowed Books**: Uses grouping and sorting by the count of transactions.
+   - **Most Active Members**: Groups transactions by member.
+   - **Transactions by Librarian**: Filters transactions by a given librarian ID.
+
+---

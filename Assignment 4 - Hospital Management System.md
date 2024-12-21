@@ -526,3 +526,610 @@ WHERE Test_ID = 3001;
 - **Availability Checks:** Ensure that rooms are not double-booked and doctors are not overbooked by checking availability before inserting new records.
 
 ---
+
+## OOP Representation:
+
+---
+
+## 1. Data Models
+
+### 1.1 Patient
+
+Each `Patient` has:
+
+- `Id` (unique identifier)
+- `Name`
+- `Age`
+- `AdmissionDate`
+- `MedicalHistory` (could be a detailed string or a list of conditions)
+- `Allergies`
+
+```csharp
+public class Patient
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int Age { get; set; }
+    public DateTime AdmissionDate { get; set; }
+    public string MedicalHistory { get; set; }
+    public string Allergies { get; set; }
+
+    public Patient(int id, string name, int age, DateTime admissionDate, string medicalHistory, string allergies)
+    {
+        Id = id;
+        Name = name;
+        Age = age;
+        AdmissionDate = admissionDate;
+        MedicalHistory = medicalHistory;
+        Allergies = allergies;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}, Age: {Age})";
+    }
+}
+```
+
+### 1.2 Doctor
+
+Each `Doctor` has:
+
+- `Id`
+- `Name`
+- `Specialization` (e.g., Cardiology, Pediatrics)
+- `Availability` (could be stored as a simple string for days/hours or a more robust schedule object)
+- `PhoneNumber`
+- They can be assigned to multiple departments.
+
+```csharp
+public class Doctor
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Specialization { get; set; }
+    public string Availability { get; set; }
+    public string PhoneNumber { get; set; }
+
+    // Departments assigned to this doctor (many-to-many relationship)
+    public List<Department> Departments { get; set; } = new List<Department>();
+
+    public Doctor(int id, string name, string specialization, string availability, string phoneNumber)
+    {
+        Id = id;
+        Name = name;
+        Specialization = specialization;
+        Availability = availability;
+        PhoneNumber = phoneNumber;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}, {Specialization})";
+    }
+}
+```
+
+### 1.3 Department
+
+Each `Department` has:
+
+- `Id`
+- `DepartmentName` (e.g., Cardiology, Pediatrics)
+- `HeadDoctor` (one doctor is the department head)
+- `Schedule` (department’s working hours)
+- A list of `Doctors` assigned (many-to-many).
+
+```csharp
+public class Department
+{
+    public int Id { get; set; }
+    public string DepartmentName { get; set; }
+    public Doctor HeadDoctor { get; set; }
+    public string Schedule { get; set; }
+
+    // The doctors who work in this department
+    public List<Doctor> AssignedDoctors { get; set; } = new List<Doctor>();
+
+    public Department(int id, string departmentName, Doctor headDoctor, string schedule)
+    {
+        Id = id;
+        DepartmentName = departmentName;
+        HeadDoctor = headDoctor;
+        Schedule = schedule;
+    }
+
+    public override string ToString()
+    {
+        return $"{DepartmentName} (ID: {Id}, Head: {HeadDoctor?.Name ?? "No Head Doctor"})";
+    }
+}
+```
+
+### 1.4 Room
+
+Each `Room` has:
+
+- `Id`
+- `RoomType` (e.g., ICU, General)
+- `IsAvailable`
+- `AssignedPatient` (optional, if a patient is currently occupying the room)
+
+```csharp
+public class Room
+{
+    public int Id { get; set; }
+    public string RoomType { get; set; }
+    public bool IsAvailable { get; set; }
+    public Patient AssignedPatient { get; set; } // null if no patient is assigned
+
+    public Room(int id, string roomType, bool isAvailable)
+    {
+        Id = id;
+        RoomType = roomType;
+        IsAvailable = isAvailable;
+    }
+
+    public override string ToString()
+    {
+        return $"Room #{Id} ({RoomType}), Available: {IsAvailable}";
+    }
+}
+```
+
+### 1.5 Appointment
+
+Tracks an appointment between a `Patient` and a `Doctor`, including:
+
+- `Id`
+- `Patient`
+- `Doctor`
+- `AppointmentDateTime`
+- `Prescriptions`
+- `TestsRequested`
+
+```csharp
+public class Appointment
+{
+    public int Id { get; set; }
+    public Patient Patient { get; set; }
+    public Doctor Doctor { get; set; }
+    public DateTime AppointmentDateTime { get; set; }
+
+    // For simplicity, store prescriptions and tests as strings or lists.
+    // In a real system, they'd likely be separate entities with more detail.
+    public string Prescriptions { get; set; }
+    public string TestsRequested { get; set; }
+
+    public Appointment(int id, Patient patient, Doctor doctor, DateTime dateTime)
+    {
+        Id = id;
+        Patient = patient;
+        Doctor = doctor;
+        AppointmentDateTime = dateTime;
+        Prescriptions = "";
+        TestsRequested = "";
+    }
+
+    public override string ToString()
+    {
+        return $"Appointment #{Id}: {Patient.Name} with Dr. {Doctor.Name} on {AppointmentDateTime}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface for CRUD operations, then create **in-memory** repositories for each entity. In a production system, these would connect to a database.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+```
+
+Here’s one sample repository (others follow the same pattern):
+
+```csharp
+public class PatientRepository : IRepository<Patient>
+{
+    private readonly List<Patient> _patients = new List<Patient>();
+
+    public void Add(Patient entity)
+    {
+        _patients.Add(entity);
+    }
+
+    public Patient GetById(int id)
+    {
+        return _patients.FirstOrDefault(x => x.Id == id);
+    }
+
+    public IEnumerable<Patient> GetAll()
+    {
+        return _patients;
+    }
+
+    public void Update(Patient entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.Age = entity.Age;
+            existing.AdmissionDate = entity.AdmissionDate;
+            existing.MedicalHistory = entity.MedicalHistory;
+            existing.Allergies = entity.Allergies;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var patient = GetById(id);
+        if (patient != null) _patients.Remove(patient);
+    }
+}
+```
+
+You would similarly create repositories for `Doctor`, `Department`, `Room`, `Appointment`, etc. For brevity, we can use a generic repository approach for some entities:
+
+```csharp
+public class GenericRepository<T> : IRepository<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T entity) => _items.Add(entity);
+
+    public T GetById(int id)
+    {
+        // This assumes T has a property named "Id" of type int
+        // We use reflection to handle it in a demo context
+        return _items.FirstOrDefault(x =>
+            (int)x.GetType().GetProperty("Id").GetValue(x) == id
+        );
+    }
+
+    public IEnumerable<T> GetAll() => _items;
+
+    public void Update(T entity)
+    {
+        var idValue = (int)entity.GetType().GetProperty("Id").GetValue(entity);
+        var existing = GetById(idValue);
+        if (existing != null)
+        {
+            _items.Remove(existing);
+            _items.Add(entity);
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var existing = GetById(id);
+        if (existing != null) _items.Remove(existing);
+    }
+}
+```
+
+---
+
+## 3. Core Hospital Service
+
+We’ll create a `HospitalService` (or `HospitalManagementService`) class that orchestrates higher-level operations:
+
+- **Appointment Booking** (checking doctor availability, preventing double-booking)
+- **Room Assignment**
+- **Department/Doctor linking**
+- **Reporting** (department performance, doctor schedules, room occupancy, etc.)
+
+```csharp
+public class HospitalService
+{
+    private readonly IRepository<Patient> _patientRepo;
+    private readonly IRepository<Doctor> _doctorRepo;
+    private readonly IRepository<Department> _departmentRepo;
+    private readonly IRepository<Room> _roomRepo;
+    private readonly IRepository<Appointment> _appointmentRepo;
+
+    public HospitalService(
+        IRepository<Patient> patientRepo,
+        IRepository<Doctor> doctorRepo,
+        IRepository<Department> departmentRepo,
+        IRepository<Room> roomRepo,
+        IRepository<Appointment> appointmentRepo)
+    {
+        _patientRepo = patientRepo;
+        _doctorRepo = doctorRepo;
+        _departmentRepo = departmentRepo;
+        _roomRepo = roomRepo;
+        _appointmentRepo = appointmentRepo;
+    }
+
+    // ------------------------------
+    // Patient & Room Management
+    // ------------------------------
+
+    public void AssignRoomToPatient(int patientId, int roomId)
+    {
+        var patient = _patientRepo.GetById(patientId);
+        if (patient == null) throw new Exception("Patient not found.");
+
+        var room = _roomRepo.GetById(roomId);
+        if (room == null) throw new Exception("Room not found.");
+
+        if (!room.IsAvailable)
+            throw new Exception("Room is not available.");
+
+        room.AssignedPatient = patient;
+        room.IsAvailable = false;
+        _roomRepo.Update(room);
+
+        Console.WriteLine($"Assigned {patient.Name} to {room.RoomType} #{room.Id}");
+    }
+
+    public void ReleaseRoom(int roomId)
+    {
+        var room = _roomRepo.GetById(roomId);
+        if (room == null) throw new Exception("Room not found.");
+
+        if (room.AssignedPatient == null)
+        {
+            Console.WriteLine("Room is already free.");
+            return;
+        }
+
+        room.AssignedPatient = null;
+        room.IsAvailable = true;
+        _roomRepo.Update(room);
+
+        Console.WriteLine($"Room #{roomId} is now free.");
+    }
+
+    // ------------------------------
+    // Doctor & Department Management
+    // ------------------------------
+
+    public void AssignDoctorToDepartment(int doctorId, int departmentId)
+    {
+        var doctor = _doctorRepo.GetById(doctorId);
+        if (doctor == null) throw new Exception("Doctor not found.");
+
+        var department = _departmentRepo.GetById(departmentId);
+        if (department == null) throw new Exception("Department not found.");
+
+        // Many-to-many: Add references on both sides
+        if (!doctor.Departments.Contains(department))
+            doctor.Departments.Add(department);
+
+        if (!department.AssignedDoctors.Contains(doctor))
+            department.AssignedDoctors.Add(doctor);
+
+        // Update repos
+        _doctorRepo.Update(doctor);
+        _departmentRepo.Update(department);
+
+        Console.WriteLine($"Assigned Dr. {doctor.Name} to Department {department.DepartmentName}.");
+    }
+
+    // ------------------------------
+    // Appointment Booking
+    // ------------------------------
+
+    public Appointment BookAppointment(int patientId, int doctorId, DateTime appointmentDateTime)
+    {
+        var patient = _patientRepo.GetById(patientId);
+        if (patient == null) throw new Exception("Patient not found.");
+
+        var doctor = _doctorRepo.GetById(doctorId);
+        if (doctor == null) throw new Exception("Doctor not found.");
+
+        // Check doctor availability or any conflicting appointments
+        var conflicts = _appointmentRepo.GetAll()
+            .Where(a => a.Doctor.Id == doctorId && a.AppointmentDateTime == appointmentDateTime);
+
+        if (conflicts.Any())
+            throw new Exception($"Doctor {doctor.Name} is already booked at that time.");
+
+        // Create the appointment
+        var newAppointmentId = GenerateAppointmentId();
+        var appointment = new Appointment(newAppointmentId, patient, doctor, appointmentDateTime);
+
+        _appointmentRepo.Add(appointment);
+        Console.WriteLine($"Appointment booked: {appointment}");
+        return appointment;
+    }
+
+    public void UpdateAppointmentTreatment(int appointmentId, string prescriptions, string testsRequested)
+    {
+        var appointment = _appointmentRepo.GetById(appointmentId);
+        if (appointment == null) throw new Exception("Appointment not found.");
+
+        appointment.Prescriptions = prescriptions;
+        appointment.TestsRequested = testsRequested;
+        _appointmentRepo.Update(appointment);
+
+        Console.WriteLine($"Updated treatment details for appointment #{appointmentId}.");
+    }
+
+    // ------------------------------
+    // Reporting
+    // ------------------------------
+
+    // Example: Room Occupancy Report
+    public IEnumerable<Room> GetOccupiedRooms()
+    {
+        return _roomRepo.GetAll().Where(r => !r.IsAvailable);
+    }
+
+    // Example: Doctor Schedule Report
+    public IEnumerable<Appointment> GetAppointmentsByDoctor(int doctorId)
+    {
+        return _appointmentRepo.GetAll().Where(a => a.Doctor.Id == doctorId);
+    }
+
+    // Example: Department Performance (simple stub)
+    public void GetDepartmentPerformance()
+    {
+        // In a real system, you'd gather meaningful metrics
+        var departments = _departmentRepo.GetAll();
+        Console.WriteLine("--- Department Performance (Stub) ---");
+        foreach (var dept in departments)
+        {
+            var doctorCount = dept.AssignedDoctors.Count;
+            Console.WriteLine($"{dept.DepartmentName}: {doctorCount} doctor(s) assigned.");
+        }
+    }
+
+    // ------------------------------
+    // Helper ID Generator
+    // ------------------------------
+
+    private int GenerateAppointmentId()
+    {
+        // In a real system, the DB or an identity generator would handle this
+        return new Random().Next(1000, 9999);
+    }
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create in-memory repositories
+        var patientRepo = new GenericRepository<Patient>();
+        var doctorRepo = new GenericRepository<Doctor>();
+        var departmentRepo = new GenericRepository<Department>();
+        var roomRepo = new GenericRepository<Room>();
+        var appointmentRepo = new GenericRepository<Appointment>();
+
+        // Create the HospitalService
+        var hospitalService = new HospitalService(
+            patientRepo, doctorRepo, departmentRepo, roomRepo, appointmentRepo
+        );
+
+        // Seed initial data
+        SeedData(patientRepo, doctorRepo, departmentRepo, roomRepo);
+
+        // 1) Assign a room to a patient
+        hospitalService.AssignRoomToPatient(patientId: 1, roomId: 101);
+
+        // 2) Book an appointment for a patient with a doctor
+        var appointment = hospitalService.BookAppointment(
+            patientId: 1,
+            doctorId: 201,
+            appointmentDateTime: DateTime.Today.AddHours(10) // 10 AM today
+        );
+
+        // 3) Update appointment with prescriptions/tests
+        hospitalService.UpdateAppointmentTreatment(
+            appointmentId: appointment.Id,
+            prescriptions: "Antibiotics",
+            testsRequested: "Blood Test"
+        );
+
+        // 4) Check Doctor's schedule
+        Console.WriteLine("\n--- Dr. Stone's Schedule ---");
+        var drStoneAppointments = hospitalService.GetAppointmentsByDoctor(doctorId: 201);
+        foreach (var appt in drStoneAppointments)
+        {
+            Console.WriteLine(appt);
+        }
+
+        // 5) View Room Occupancy
+        Console.WriteLine("\n--- Occupied Rooms ---");
+        var occupiedRooms = hospitalService.GetOccupiedRooms();
+        foreach (var r in occupiedRooms)
+        {
+            Console.WriteLine(r);
+        }
+
+        // 6) Department Performance
+        Console.WriteLine("\n--- Department Performance ---");
+        hospitalService.GetDepartmentPerformance();
+
+        // 7) Release Room
+        hospitalService.ReleaseRoom(roomId: 101);
+    }
+
+    private static void SeedData(
+        IRepository<Patient> patientRepo,
+        IRepository<Doctor> doctorRepo,
+        IRepository<Department> departmentRepo,
+        IRepository<Room> roomRepo)
+    {
+        // Add Patients
+        var patient1 = new Patient(1, "Alice Johnson", 30, DateTime.Now.AddDays(-2), "No major issues", "Penicillin");
+        var patient2 = new Patient(2, "Bob Williams", 45, DateTime.Now.AddDays(-1), "Diabetic", "None");
+        patientRepo.Add(patient1);
+        patientRepo.Add(patient2);
+
+        // Add Doctors
+        var doctor1 = new Doctor(201, "Dr. Stone", "Cardiology", "Mon-Fri 9am-5pm", "555-1234");
+        var doctor2 = new Doctor(202, "Dr. Carter", "Pediatrics", "Mon-Fri 8am-4pm", "555-5678");
+        doctorRepo.Add(doctor1);
+        doctorRepo.Add(doctor2);
+
+        // Add Departments
+        var cardioDept = new Department(301, "Cardiology", doctor1, "24/7");
+        var pediatricsDept = new Department(302, "Pediatrics", doctor2, "24/7");
+        departmentRepo.Add(cardioDept);
+        departmentRepo.Add(pediatricsDept);
+
+        // Assign doctors to departments (many-to-many)
+        doctor1.Departments.Add(cardioDept);
+        doctor2.Departments.Add(pediatricsDept);
+
+        // Update them back in repository
+        doctorRepo.Update(doctor1);
+        doctorRepo.Update(doctor2);
+
+        // Add Rooms
+        var room1 = new Room(101, "ICU", true);
+        var room2 = new Room(102, "General", true);
+        var room3 = new Room(103, "General", false); // occupied initially by some unknown patient
+        roomRepo.Add(room1);
+        roomRepo.Add(room2);
+        roomRepo.Add(room3);
+    }
+}
+```
+
+### What Happens in `Main()`?
+
+1. **Seeding Data**: We create patients, doctors, departments, and rooms.
+2. **Assign a room** to the first patient (Room #101).
+3. **Book an appointment** for that patient with Doctor #201 (Cardiologist).
+4. **Update the appointment** with prescription and test details.
+5. **Get the doctor’s schedule** (appointments) and print them out.
+6. **List occupied rooms** to see which ones are currently assigned to patients.
+7. **Report** on department performance (stubbed).
+8. **Release a room** to make it available again.
+
+---
+
+## Final Thoughts
+
+- **Relationships**:
+  - **Patient-Room**: one-to-one at any given time (a room has at most one assigned patient).
+  - **Doctor-Department**: many-to-many.
+  - **Appointment** references a **Doctor** and a **Patient**.
+- **Domain Logic**:
+  - The `HospitalService` coordinates core use cases like **appointment booking**, **room assignment**, and **reporting**.
+  - Repositories handle CRUD for each entity.
+- **Reporting**:
+  - We demonstrate examples like **room occupancy** and **doctor schedule**.
+  - A real system would expand these reports to show department performance metrics (number of patients treated, etc.), and potentially more advanced analytics.
+
+---

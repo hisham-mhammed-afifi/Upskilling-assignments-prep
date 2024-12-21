@@ -771,3 +771,844 @@ WHERE a.Student_ID = 1;
 ```
 
 ---
+
+## OOP Representation:
+
+---
+
+## 1. Data Models
+
+### 1.1 Student
+
+Each `Student` has:
+
+- An ID (unique identifier)
+- Name, Age, Class (e.g., “Grade 10”)
+- Enrollment Date (the date the student joined the school)
+
+```csharp
+public class Student
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int Age { get; set; }
+    public string ClassName { get; set; } // "Grade 10", "Class 2B", etc.
+    public DateTime EnrollmentDate { get; set; }
+
+    // Could later store many GradeRecords or keep them separate
+    // For this example, we'll track grades via a separate "GradeRecord" entity.
+
+    public Student(int id, string name, int age, string className, DateTime enrollmentDate)
+    {
+        Id = id;
+        Name = name;
+        Age = age;
+        ClassName = className;
+        EnrollmentDate = enrollmentDate;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}, Class: {ClassName})";
+    }
+}
+```
+
+### 1.2 Teacher
+
+Each `Teacher` has:
+
+- An ID (unique identifier)
+- Name
+- Subject Specialization
+- Phone Number
+
+```csharp
+public class Teacher
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string SubjectSpecialization { get; set; }
+    public string PhoneNumber { get; set; }
+
+    public Teacher(int id, string name, string specialization, string phoneNumber)
+    {
+        Id = id;
+        Name = name;
+        SubjectSpecialization = specialization;
+        PhoneNumber = phoneNumber;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}, Specialization: {SubjectSpecialization})";
+    }
+}
+```
+
+### 1.3 Course
+
+Each `Course` has:
+
+- A Name
+- A Description
+- One-to-many relationship with sections (i.e., multiple `Section` objects can be associated with a single `Course`).
+
+```csharp
+public class Course
+{
+    public int Id { get; set; }
+    public string CourseName { get; set; }
+    public string Description { get; set; }
+
+    // A course can have multiple sections
+    public List<Section> Sections { get; set; } = new List<Section>();
+
+    public Course(int id, string courseName, string description)
+    {
+        Id = id;
+        CourseName = courseName;
+        Description = description;
+    }
+
+    public override string ToString()
+    {
+        return $"{CourseName} (ID: {Id})";
+    }
+}
+```
+
+### 1.4 Section
+
+A `Section` represents a specific “instance” of a course (e.g., “Math101 - Section A”).
+
+- Each section belongs to exactly one `Course`.
+- Each section has _one_ main teacher assigned (`Teacher`)—though more could be added if desired.
+- Students enroll in specific sections (tracked via an `Enrollment` record).
+
+```csharp
+public class Section
+{
+    public int Id { get; set; }
+    public string SectionName { get; set; }
+    public Teacher AssignedTeacher { get; set; }
+    public Course Course { get; set; }
+
+    public Section(int id, string sectionName, Teacher assignedTeacher, Course course)
+    {
+        Id = id;
+        SectionName = sectionName;
+        AssignedTeacher = assignedTeacher;
+        Course = course;
+    }
+
+    public override string ToString()
+    {
+        return $"{SectionName} (Section ID: {Id}) - Teacher: {AssignedTeacher?.Name ?? "No Teacher"}";
+    }
+}
+```
+
+### 1.5 Enrollment
+
+Tracks which students are enrolled in which sections:
+
+- References `Student` and `Section`.
+- Could store additional info such as enrollment date, etc.
+
+```csharp
+public class Enrollment
+{
+    public int Id { get; set; }
+    public Student Student { get; set; }
+    public Section Section { get; set; }
+    public DateTime EnrollmentDate { get; set; }
+
+    public Enrollment(int id, Student student, Section section)
+    {
+        Id = id;
+        Student = student;
+        Section = section;
+        EnrollmentDate = DateTime.Now;
+    }
+
+    public override string ToString()
+    {
+        return $"Enrollment #{Id}: {Student.Name} -> {Section.SectionName}";
+    }
+}
+```
+
+### 1.6 Attendance
+
+Tracks daily attendance (Present/Absent) for each student in each section.
+
+- References `Student` + `Section` + `DateAttended` + `IsPresent`.
+
+```csharp
+public class AttendanceRecord
+{
+    public int Id { get; set; }
+    public Student Student { get; set; }
+    public Section Section { get; set; }
+    public DateTime DateAttended { get; set; }
+    public bool IsPresent { get; set; }
+
+    public AttendanceRecord(int id, Student student, Section section, DateTime dateAttended, bool isPresent)
+    {
+        Id = id;
+        Student = student;
+        Section = section;
+        DateAttended = dateAttended;
+        IsPresent = isPresent;
+    }
+
+    public override string ToString()
+    {
+        return $"Attendance #{Id}: {Student.Name} in {Section.SectionName} on {DateAttended.ToShortDateString()} -> {(IsPresent ? "Present" : "Absent")}";
+    }
+}
+```
+
+### 1.7 GradeRecord
+
+Stores student grades in each section (or course). This can be expanded for multiple exams, assignments, etc.
+
+```csharp
+public class GradeRecord
+{
+    public int Id { get; set; }
+    public Student Student { get; set; }
+    public Section Section { get; set; }
+    public decimal Grade { get; set; } // e.g., final average or could store more details
+
+    public GradeRecord(int id, Student student, Section section, decimal grade)
+    {
+        Id = id;
+        Student = student;
+        Section = section;
+        Grade = grade;
+    }
+
+    public override string ToString()
+    {
+        return $"GradeRecord #{Id}: {Student.Name} - {Section.SectionName} => Grade: {Grade}";
+    }
+}
+```
+
+### 1.8 Extracurricular Activity
+
+Tracks extracurricular activities:
+
+- Name, Description
+- Lists of participants: both students and teachers.
+
+```csharp
+public class Activity
+{
+    public int Id { get; set; }
+    public string ActivityName { get; set; }
+    public string Description { get; set; }
+
+    public List<Student> StudentParticipants { get; set; } = new List<Student>();
+    public List<Teacher> TeacherParticipants { get; set; } = new List<Teacher>();
+
+    public Activity(int id, string activityName, string description)
+    {
+        Id = id;
+        ActivityName = activityName;
+        Description = description;
+    }
+
+    public override string ToString()
+    {
+        return $"{ActivityName} (ID: {Id}) - {Description}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface for CRUD operations, then create concrete in-memory repositories for each entity.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+```
+
+Below are a few sample repositories. The pattern is the same for each entity, so we won’t show _all_ of them in detail, but you’ll see the approach is consistent.
+
+### 2.1 StudentRepository
+
+```csharp
+public class StudentRepository : IRepository<Student>
+{
+    private readonly List<Student> _students = new List<Student>();
+
+    public void Add(Student entity)
+    {
+        _students.Add(entity);
+    }
+
+    public Student GetById(int id)
+    {
+        return _students.FirstOrDefault(s => s.Id == id);
+    }
+
+    public IEnumerable<Student> GetAll()
+    {
+        return _students;
+    }
+
+    public void Update(Student entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.Age = entity.Age;
+            existing.ClassName = entity.ClassName;
+            existing.EnrollmentDate = entity.EnrollmentDate;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var student = GetById(id);
+        if (student != null)
+        {
+            _students.Remove(student);
+        }
+    }
+}
+```
+
+### 2.2 TeacherRepository
+
+```csharp
+public class TeacherRepository : IRepository<Teacher>
+{
+    private readonly List<Teacher> _teachers = new List<Teacher>();
+
+    public void Add(Teacher entity)
+    {
+        _teachers.Add(entity);
+    }
+
+    public Teacher GetById(int id)
+    {
+        return _teachers.FirstOrDefault(t => t.Id == id);
+    }
+
+    public IEnumerable<Teacher> GetAll()
+    {
+        return _teachers;
+    }
+
+    public void Update(Teacher entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.SubjectSpecialization = entity.SubjectSpecialization;
+            existing.PhoneNumber = entity.PhoneNumber;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var teacher = GetById(id);
+        if (teacher != null)
+        {
+            _teachers.Remove(teacher);
+        }
+    }
+}
+```
+
+### 2.3 CourseRepository
+
+```csharp
+public class CourseRepository : IRepository<Course>
+{
+    private readonly List<Course> _courses = new List<Course>();
+
+    public void Add(Course entity)
+    {
+        _courses.Add(entity);
+    }
+
+    public Course GetById(int id)
+    {
+        return _courses.FirstOrDefault(c => c.Id == id);
+    }
+
+    public IEnumerable<Course> GetAll()
+    {
+        return _courses;
+    }
+
+    public void Update(Course entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.CourseName = entity.CourseName;
+            existing.Description = entity.Description;
+            existing.Sections = entity.Sections;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var course = GetById(id);
+        if (course != null)
+        {
+            _courses.Remove(course);
+        }
+    }
+}
+```
+
+_(Similarly, you would create repositories for `Section`, `Enrollment`, `AttendanceRecord`, `GradeRecord`, `Activity`, etc.)_
+
+---
+
+## 3. Core School Service
+
+We’ll create a `SchoolService` class to handle higher-level operations:
+
+- Student enrollment in a section
+- Recording attendance
+- Assigning a teacher to a section
+- Creating grade records
+- Managing extracurricular participation
+- Generating simple reports
+
+```csharp
+public class SchoolService
+{
+    private readonly IRepository<Student> _studentRepo;
+    private readonly IRepository<Teacher> _teacherRepo;
+    private readonly IRepository<Course> _courseRepo;
+    private readonly IRepository<Section> _sectionRepo;
+    private readonly IRepository<Enrollment> _enrollmentRepo;
+    private readonly IRepository<AttendanceRecord> _attendanceRepo;
+    private readonly IRepository<GradeRecord> _gradeRepo;
+    private readonly IRepository<Activity> _activityRepo;
+
+    public SchoolService(
+        IRepository<Student> studentRepo,
+        IRepository<Teacher> teacherRepo,
+        IRepository<Course> courseRepo,
+        IRepository<Section> sectionRepo,
+        IRepository<Enrollment> enrollmentRepo,
+        IRepository<AttendanceRecord> attendanceRepo,
+        IRepository<GradeRecord> gradeRepo,
+        IRepository<Activity> activityRepo)
+    {
+        _studentRepo = studentRepo;
+        _teacherRepo = teacherRepo;
+        _courseRepo = courseRepo;
+        _sectionRepo = sectionRepo;
+        _enrollmentRepo = enrollmentRepo;
+        _attendanceRepo = attendanceRepo;
+        _gradeRepo = gradeRepo;
+        _activityRepo = activityRepo;
+    }
+
+    // ------------------------------
+    // Student & Course/Section Ops
+    // ------------------------------
+
+    public Enrollment EnrollStudentInSection(int studentId, int sectionId)
+    {
+        var student = _studentRepo.GetById(studentId);
+        if (student == null) throw new Exception("Student not found.");
+
+        var section = _sectionRepo.GetById(sectionId);
+        if (section == null) throw new Exception("Section not found.");
+
+        // Check if student is already enrolled in this section
+        var existingEnrollment = _enrollmentRepo.GetAll()
+            .FirstOrDefault(e => e.Student.Id == studentId && e.Section.Id == sectionId);
+
+        if (existingEnrollment != null)
+        {
+            throw new Exception("Student is already enrolled in this section.");
+        }
+
+        var newEnrollmentId = GenerateEnrollmentId();
+        var enrollment = new Enrollment(newEnrollmentId, student, section);
+        _enrollmentRepo.Add(enrollment);
+
+        Console.WriteLine($"Student '{student.Name}' enrolled in section '{section.SectionName}'.");
+        return enrollment;
+    }
+
+    public void UnenrollStudentFromSection(int enrollmentId)
+    {
+        var enrollment = _enrollmentRepo.GetById(enrollmentId);
+        if (enrollment == null) throw new Exception("Enrollment not found.");
+
+        _enrollmentRepo.Delete(enrollmentId);
+        Console.WriteLine($"Unenrolled student '{enrollment.Student.Name}' from section '{enrollment.Section.SectionName}'.");
+    }
+
+    // ------------------------------
+    // Teacher Ops
+    // ------------------------------
+
+    public void AssignTeacherToSection(int teacherId, int sectionId)
+    {
+        var teacher = _teacherRepo.GetById(teacherId);
+        if (teacher == null) throw new Exception("Teacher not found.");
+
+        var section = _sectionRepo.GetById(sectionId);
+        if (section == null) throw new Exception("Section not found.");
+
+        section.AssignedTeacher = teacher;
+        _sectionRepo.Update(section);
+
+        Console.WriteLine($"Assigned teacher '{teacher.Name}' to section '{section.SectionName}'.");
+    }
+
+    // ------------------------------
+    // Attendance Ops
+    // ------------------------------
+
+    public AttendanceRecord MarkAttendance(int studentId, int sectionId, bool isPresent)
+    {
+        var student = _studentRepo.GetById(studentId);
+        if (student == null) throw new Exception("Student not found.");
+
+        var section = _sectionRepo.GetById(sectionId);
+        if (section == null) throw new Exception("Section not found.");
+
+        var attendanceId = GenerateAttendanceId();
+        var record = new AttendanceRecord(attendanceId, student, section, DateTime.Now, isPresent);
+        _attendanceRepo.Add(record);
+
+        Console.WriteLine($"Marked '{student.Name}' as {(isPresent ? "Present" : "Absent")} in '{section.SectionName}'.");
+        return record;
+    }
+
+    // ------------------------------
+    // Grade Ops
+    // ------------------------------
+
+    public GradeRecord RecordGrade(int studentId, int sectionId, decimal grade)
+    {
+        var student = _studentRepo.GetById(studentId);
+        if (student == null) throw new Exception("Student not found.");
+
+        var section = _sectionRepo.GetById(sectionId);
+        if (section == null) throw new Exception("Section not found.");
+
+        var gradeId = GenerateGradeId();
+        var gradeRecord = new GradeRecord(gradeId, student, section, grade);
+        _gradeRepo.Add(gradeRecord);
+
+        Console.WriteLine($"Recorded grade {grade} for student '{student.Name}' in '{section.SectionName}'.");
+        return gradeRecord;
+    }
+
+    // ------------------------------
+    // Activities
+    // ------------------------------
+
+    public void AddStudentToActivity(int activityId, int studentId)
+    {
+        var activity = _activityRepo.GetById(activityId);
+        if (activity == null) throw new Exception("Activity not found.");
+
+        var student = _studentRepo.GetById(studentId);
+        if (student == null) throw new Exception("Student not found.");
+
+        if (!activity.StudentParticipants.Contains(student))
+        {
+            activity.StudentParticipants.Add(student);
+            _activityRepo.Update(activity);
+            Console.WriteLine($"Added student '{student.Name}' to activity '{activity.ActivityName}'.");
+        }
+    }
+
+    public void AddTeacherToActivity(int activityId, int teacherId)
+    {
+        var activity = _activityRepo.GetById(activityId);
+        if (activity == null) throw new Exception("Activity not found.");
+
+        var teacher = _teacherRepo.GetById(teacherId);
+        if (teacher == null) throw new Exception("Teacher not found.");
+
+        if (!activity.TeacherParticipants.Contains(teacher))
+        {
+            activity.TeacherParticipants.Add(teacher);
+            _activityRepo.Update(activity);
+            Console.WriteLine($"Added teacher '{teacher.Name}' to activity '{activity.ActivityName}'.");
+        }
+    }
+
+    // ------------------------------
+    // Reporting
+    // ------------------------------
+
+    /// <summary>
+    /// Report: Show all grades for a given student
+    /// </summary>
+    public IEnumerable<GradeRecord> GetStudentGrades(int studentId)
+    {
+        return _gradeRepo.GetAll().Where(gr => gr.Student.Id == studentId);
+    }
+
+    /// <summary>
+    /// Report: List students enrolled in a specific section
+    /// </summary>
+    public IEnumerable<Student> GetStudentsInSection(int sectionId)
+    {
+        return _enrollmentRepo.GetAll()
+            .Where(e => e.Section.Id == sectionId)
+            .Select(e => e.Student);
+    }
+
+    /// <summary>
+    /// Report: Attendance records for a given student
+    /// </summary>
+    public IEnumerable<AttendanceRecord> GetAttendanceForStudent(int studentId)
+    {
+        return _attendanceRepo.GetAll().Where(ar => ar.Student.Id == studentId);
+    }
+
+    /// <summary>
+    /// Report: Students and teachers involved in a particular extracurricular activity
+    /// </summary>
+    public (IEnumerable<Student> Students, IEnumerable<Teacher> Teachers) GetActivityParticipants(int activityId)
+    {
+        var activity = _activityRepo.GetById(activityId);
+        if (activity == null) return (Enumerable.Empty<Student>(), Enumerable.Empty<Teacher>());
+
+        return (activity.StudentParticipants, activity.TeacherParticipants);
+    }
+
+    // ------------------------------
+    // Helper ID Generators (In-Memory)
+    // ------------------------------
+
+    private int GenerateEnrollmentId()
+    {
+        return new Random().Next(1000, 9999);
+    }
+
+    private int GenerateAttendanceId()
+    {
+        return new Random().Next(10000, 99999);
+    }
+
+    private int GenerateGradeId()
+    {
+        return new Random().Next(10000, 99999);
+    }
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create repositories (in-memory)
+        var studentRepo = new StudentRepository();
+        var teacherRepo = new TeacherRepository();
+        var courseRepo = new GenericRepository<Course>();        // We'll assume we have a generic
+        var sectionRepo = new GenericRepository<Section>();      // repository for these as well
+        var enrollmentRepo = new GenericRepository<Enrollment>();
+        var attendanceRepo = new GenericRepository<AttendanceRecord>();
+        var gradeRepo = new GenericRepository<GradeRecord>();
+        var activityRepo = new GenericRepository<Activity>();
+
+        // Create the SchoolService
+        var schoolService = new SchoolService(
+            studentRepo,
+            teacherRepo,
+            courseRepo,
+            sectionRepo,
+            enrollmentRepo,
+            attendanceRepo,
+            gradeRepo,
+            activityRepo
+        );
+
+        // Seed some initial data
+        SeedData(studentRepo, teacherRepo, courseRepo, sectionRepo, activityRepo);
+
+        // 1) Enroll a student in a section
+        var enrollment = schoolService.EnrollStudentInSection(studentId: 1, sectionId: 101);
+
+        // 2) Mark attendance
+        schoolService.MarkAttendance(studentId: 1, sectionId: 101, isPresent: true);
+
+        // 3) Record grade
+        schoolService.RecordGrade(studentId: 1, sectionId: 101, grade: 95m);
+
+        // 4) Add teacher to another section
+        schoolService.AssignTeacherToSection(teacherId: 2, sectionId: 102);
+
+        // 5) Add student/teacher to extracurricular activity
+        schoolService.AddStudentToActivity(activityId: 1001, studentId: 1);
+        schoolService.AddTeacherToActivity(activityId: 1001, teacherId: 1);
+
+        // 6) Generate and display some reports
+
+        // a) Student grades
+        Console.WriteLine("\n-- Student #1 Grades --");
+        var grades = schoolService.GetStudentGrades(1);
+        foreach (var gr in grades)
+        {
+            Console.WriteLine(gr);
+        }
+
+        // b) Students in Section #101
+        Console.WriteLine("\n-- Students in Section #101 --");
+        var studentsInSection101 = schoolService.GetStudentsInSection(101);
+        foreach (var s in studentsInSection101)
+        {
+            Console.WriteLine(s);
+        }
+
+        // c) Attendance for Student #1
+        Console.WriteLine("\n-- Attendance for Student #1 --");
+        var attendanceRecords = schoolService.GetAttendanceForStudent(1);
+        foreach (var ar in attendanceRecords)
+        {
+            Console.WriteLine(ar);
+        }
+
+        // d) Activity participants for Activity #1001
+        Console.WriteLine("\n-- Participants in Activity #1001 --");
+        var (stuParticipants, tchParticipants) = schoolService.GetActivityParticipants(1001);
+
+        Console.WriteLine("Students:");
+        foreach (var sp in stuParticipants) Console.WriteLine(sp);
+
+        Console.WriteLine("Teachers:");
+        foreach (var tp in tchParticipants) Console.WriteLine(tp);
+    }
+
+    private static void SeedData(
+        IRepository<Student> studentRepo,
+        IRepository<Teacher> teacherRepo,
+        IRepository<Course> courseRepo,
+        IRepository<Section> sectionRepo,
+        IRepository<Activity> activityRepo)
+    {
+        // Students
+        var student1 = new Student(1, "Alice Brown", 14, "Grade 8", DateTime.Now.AddYears(-2));
+        var student2 = new Student(2, "Bob Smith", 15, "Grade 9", DateTime.Now.AddYears(-1));
+        studentRepo.Add(student1);
+        studentRepo.Add(student2);
+
+        // Teachers
+        var teacher1 = new Teacher(1, "Mr. Johnson", "Mathematics", "555-1234");
+        var teacher2 = new Teacher(2, "Ms. Davis", "English Literature", "555-5678");
+        teacherRepo.Add(teacher1);
+        teacherRepo.Add(teacher2);
+
+        // Courses
+        var courseMath = new Course(1, "Mathematics", "Algebra, Geometry, Calculus...");
+        var courseEng = new Course(2, "English Literature", "Poetry, Novels, Essays...");
+        courseRepo.Add(courseMath);
+        courseRepo.Add(courseEng);
+
+        // Sections
+        var sectionMathA = new Section(101, "Math - Section A", teacher1, courseMath);
+        var sectionEngB = new Section(102, "English - Section B", teacher2, courseEng);
+        sectionRepo.Add(sectionMathA);
+        sectionRepo.Add(sectionEngB);
+
+        // Activities
+        var activitySports = new Activity(1001, "Basketball Team", "School Basketball team");
+        activityRepo.Add(activitySports);
+
+        // Link sections to courses
+        courseMath.Sections.Add(sectionMathA);
+        courseEng.Sections.Add(sectionEngB);
+    }
+}
+```
+
+### A Note on the `GenericRepository<T>`
+
+You may have noticed we used a `GenericRepository<T>` for some entities (`Course`, `Section`, etc.) without showing its implementation in detail. It would look similar to the `StudentRepository` or `TeacherRepository`, just parameterized:
+
+```csharp
+public class GenericRepository<T> : IRepository<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T entity) => _items.Add(entity);
+
+    public T GetById(int id)
+    {
+        // This assumes T has a property named "Id" of type int,
+        // which you'd need to handle via reflection or a constraint.
+        return _items.FirstOrDefault(x =>
+            (int)x.GetType().GetProperty("Id").GetValue(x) == id
+        );
+    }
+
+    public IEnumerable<T> GetAll() => _items;
+
+    public void Update(T entity)
+    {
+        var idValue = (int)entity.GetType().GetProperty("Id").GetValue(entity);
+        var existing = GetById(idValue);
+        if (existing != null)
+        {
+            // Replace with the new entity (simple approach)
+            _items.Remove(existing);
+            _items.Add(entity);
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var existing = GetById(id);
+        if (existing != null) _items.Remove(existing);
+    }
+}
+```
+
+_(Or you could create separate repositories for each entity if you prefer more explicit control.)_
+
+---
+
+## Final Thoughts
+
+- **Relationships**:
+  - Student-Section is many-to-many (modeled via `Enrollment`).
+  - Teacher-Section is one-to-many (one teacher assigned to a section, or multiple sections per teacher).
+  - Course-Section is one-to-many (one course can have multiple sections).
+  - AttendanceRecord references the (Student + Section).
+  - GradeRecord references the (Student + Section).
+  - Activities have a many-to-many relationship with both students and teachers.
+- **Business Logic**:
+  - The `SchoolService` orchestrates core use cases (enrollment, attendance, grading, teacher assignment, extracurricular management).
+  - Repositories handle CRUD for each entity.
+- **Reporting**:
+  - Basic queries to get student grades, enrollment lists, attendance records, and activity participants.
+
+---

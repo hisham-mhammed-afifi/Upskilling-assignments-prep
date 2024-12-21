@@ -510,3 +510,671 @@ WHERE Quantity_in_stock <= Restock_Threshold;
 ```
 
 ---
+
+## OOP Representation:
+
+---
+
+## 1. Data Models
+
+### 1.1 Table
+
+Represents a physical table in the restaurant:
+
+```csharp
+public class RestaurantTable
+{
+    public int Id { get; set; }
+    public int NumberOfSeats { get; set; }
+    public string Location { get; set; }     // e.g., "Indoor", "Outdoor", "Near Window"
+    public bool IsReserved { get; set; }     // indicates if the table is currently reserved
+
+    public RestaurantTable(int id, int seats, string location)
+    {
+        Id = id;
+        NumberOfSeats = seats;
+        Location = location;
+        IsReserved = false;
+    }
+
+    public override string ToString()
+    {
+        return $"Table #{Id}, Seats: {NumberOfSeats}, Location: {Location}, Reserved: {IsReserved}";
+    }
+}
+```
+
+### 1.2 Customer
+
+Stores customer details:
+
+```csharp
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ContactInfo { get; set; }    // e.g., phone number, email
+    public string Preferences { get; set; }    // e.g., "Vegetarian", "Allergic to nuts"
+
+    public Customer(int id, string name, string contactInfo, string preferences)
+    {
+        Id = id;
+        Name = name;
+        ContactInfo = contactInfo;
+        Preferences = preferences;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Contact: {ContactInfo}";
+    }
+}
+```
+
+### 1.3 Staff
+
+Represents employees at the restaurant:
+
+```csharp
+public class Staff
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Role { get; set; }          // e.g., "Waiter", "Chef", "Manager"
+    public string ShiftDetails { get; set; }  // e.g., "9AM - 5PM"
+
+    // Performance tracking: how many orders handled, etc.
+    public int OrdersHandled { get; set; } = 0;
+
+    public Staff(int id, string name, string role, string shiftDetails)
+    {
+        Id = id;
+        Name = name;
+        Role = role;
+        ShiftDetails = shiftDetails;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}, {Role}), Shift: {ShiftDetails}";
+    }
+}
+```
+
+### 1.4 Menu Categories and Items
+
+We’ll have a `Category` (e.g., “Appetizers”, “Main Course”) and each category has multiple `MenuItem` entries.
+
+```csharp
+public class Category
+{
+    public int Id { get; set; }
+    public string Name { get; set; }           // e.g., "Appetizers", "Main Course"
+    public List<MenuItem> MenuItems { get; set; } = new List<MenuItem>();
+
+    public Category(int id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (Category ID: {Id})";
+    }
+}
+```
+
+### 1.5 Ingredients and Inventory
+
+Each `MenuItem` references a list of `Ingredient`s. The system tracks the quantities to know when to restock.
+
+```csharp
+public class Ingredient
+{
+    public int Id { get; set; }
+    public string Name { get; set; }     // e.g., "Tomato", "Cheese"
+    public double Quantity { get; set; } // e.g., 10.5 units (could be grams, pounds, etc.)
+
+    public Ingredient(int id, string name, double quantity)
+    {
+        Id = id;
+        Name = name;
+        Quantity = quantity;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Qty: {Quantity}";
+    }
+}
+```
+
+### 1.6 MenuItem
+
+Represents a dish/drink on the menu and tracks the ingredients used:
+
+```csharp
+public class MenuItem
+{
+    public int Id { get; set; }
+    public string Name { get; set; }     // e.g., "Cheeseburger", "Margherita Pizza"
+    public decimal Price { get; set; }
+    public List<Ingredient> Ingredients { get; set; } = new List<Ingredient>();
+
+    // Each menu item belongs to exactly one category (e.g., "Main Course")
+    public Category Category { get; set; }
+
+    public MenuItem(int id, string name, decimal price, Category category)
+    {
+        Id = id;
+        Name = name;
+        Price = price;
+        Category = category;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Price: {Price:C}, Category: {Category.Name}";
+    }
+}
+```
+
+### 1.7 Order
+
+Represents a single order. It ties together:
+
+- The `RestaurantTable` (table where the order is placed)
+- The `Customer` who placed it
+- The `Staff` member handling it (e.g., waiter)
+- Order items (which menu items, in what quantity)
+- Status (pending, in progress, served)
+
+```csharp
+public class Order
+{
+    public int Id { get; set; }
+    public RestaurantTable Table { get; set; }
+    public Customer Customer { get; set; }
+    public Staff HandledBy { get; set; }
+    public string Status { get; set; } // e.g., "Pending", "In Progress", "Served"
+
+    // A list of items in the form (MenuItem, quantity)
+    public List<(MenuItem item, int quantity)> OrderItems { get; set; }
+        = new List<(MenuItem item, int quantity)>();
+
+    public DateTime CreatedAt { get; set; }
+
+    public Order(int id, RestaurantTable table, Customer customer, Staff handledBy)
+    {
+        Id = id;
+        Table = table;
+        Customer = customer;
+        HandledBy = handledBy;
+        Status = "Pending";
+        CreatedAt = DateTime.Now;
+    }
+
+    public decimal CalculateTotal()
+    {
+        return OrderItems.Sum(oi => oi.item.Price * oi.quantity);
+    }
+
+    public override string ToString()
+    {
+        return $"Order #{Id}, Table #{Table.Id}, Customer: {Customer.Name}, Staff: {HandledBy.Name}, Status: {Status}";
+    }
+}
+```
+
+### 1.8 Reservation
+
+Manages table reservations:
+
+```csharp
+public class Reservation
+{
+    public int Id { get; set; }
+    public Customer Customer { get; set; }
+    public RestaurantTable Table { get; set; }
+    public DateTime ReservationTime { get; set; }
+    public string SpecialRequests { get; set; } // e.g. "Birthday celebration", "Window seat"
+    public string Status { get; set; }          // e.g., "Confirmed", "Pending", "Cancelled"
+
+    public Reservation(int id, Customer customer, RestaurantTable table, DateTime time)
+    {
+        Id = id;
+        Customer = customer;
+        Table = table;
+        ReservationTime = time;
+        Status = "Pending";
+    }
+
+    public override string ToString()
+    {
+        return $"Reservation #{Id}, Table #{Table.Id}, Customer: {Customer.Name}, Time: {ReservationTime}, Status: {Status}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface for CRUD operations, then create **in-memory** repositories for each entity.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+```
+
+Below is a sample repository. Others follow the same pattern:
+
+```csharp
+public class GenericRepository<T> : IRepository<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T entity)
+    {
+        _items.Add(entity);
+    }
+
+    public T GetById(int id)
+    {
+        // This uses reflection to get a property named "Id" from T.
+        // In a production scenario, you'd likely do something more robust.
+        return _items.FirstOrDefault(x =>
+            (int)x.GetType().GetProperty("Id").GetValue(x) == id
+        );
+    }
+
+    public IEnumerable<T> GetAll()
+    {
+        return _items;
+    }
+
+    public void Update(T entity)
+    {
+        var idValue = (int)entity.GetType().GetProperty("Id").GetValue(entity);
+        var existing = GetById(idValue);
+        if (existing != null)
+        {
+            _items.Remove(existing);
+            _items.Add(entity);
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var existing = GetById(id);
+        if (existing != null) _items.Remove(existing);
+    }
+}
+```
+
+_(You can either create a `GenericRepository<T>` for each entity or create separate repositories like `OrderRepository`, `StaffRepository`, etc.)_
+
+---
+
+## 3. Core Service: RestaurantService
+
+This service orchestrates the main functionality:
+
+- **Reservations**
+- **Orders** (placing and updating)
+- **Inventory** updates (ingredient usage)
+- **Reporting** (staff performance, most ordered dishes, reservation stats)
+
+```csharp
+public class RestaurantService
+{
+    private readonly IRepository<RestaurantTable> _tableRepo;
+    private readonly IRepository<Customer> _customerRepo;
+    private readonly IRepository<Staff> _staffRepo;
+    private readonly IRepository<MenuItem> _menuItemRepo;
+    private readonly IRepository<Order> _orderRepo;
+    private readonly IRepository<Reservation> _reservationRepo;
+    private readonly IRepository<Category> _categoryRepo;
+
+    public RestaurantService(
+        IRepository<RestaurantTable> tableRepo,
+        IRepository<Customer> customerRepo,
+        IRepository<Staff> staffRepo,
+        IRepository<MenuItem> menuItemRepo,
+        IRepository<Order> orderRepo,
+        IRepository<Reservation> reservationRepo,
+        IRepository<Category> categoryRepo)
+    {
+        _tableRepo = tableRepo;
+        _customerRepo = customerRepo;
+        _staffRepo = staffRepo;
+        _menuItemRepo = menuItemRepo;
+        _orderRepo = orderRepo;
+        _reservationRepo = reservationRepo;
+        _categoryRepo = categoryRepo;
+    }
+
+    // ------------------------------
+    // Reservation Management
+    // ------------------------------
+
+    public Reservation MakeReservation(int customerId, int tableId, DateTime reservationTime, string specialRequests)
+    {
+        var customer = _customerRepo.GetById(customerId);
+        if (customer == null) throw new Exception("Customer not found.");
+
+        var table = _tableRepo.GetById(tableId);
+        if (table == null) throw new Exception("Table not found.");
+        if (table.IsReserved) throw new Exception($"Table #{table.Id} is already reserved at that time.");
+
+        // Basic check: if the requested time is soon, you might consider more advanced logic, but we’ll keep it simple.
+        var newResId = GenerateReservationId();
+        var reservation = new Reservation(newResId, customer, table, reservationTime)
+        {
+            SpecialRequests = specialRequests,
+            Status = "Confirmed"
+        };
+
+        table.IsReserved = true;
+        _tableRepo.Update(table);
+
+        _reservationRepo.Add(reservation);
+        Console.WriteLine($"Reservation created: {reservation}");
+        return reservation;
+    }
+
+    public void CancelReservation(int reservationId)
+    {
+        var reservation = _reservationRepo.GetById(reservationId);
+        if (reservation == null) throw new Exception("Reservation not found.");
+
+        reservation.Status = "Cancelled";
+        _reservationRepo.Update(reservation);
+
+        // Make the table available again
+        var table = reservation.Table;
+        if (table != null)
+        {
+            table.IsReserved = false;
+            _tableRepo.Update(table);
+        }
+
+        Console.WriteLine($"Reservation #{reservationId} cancelled.");
+    }
+
+    // ------------------------------
+    // Order Management
+    // ------------------------------
+
+    public Order PlaceOrder(int tableId, int customerId, int staffId, List<(int menuItemId, int quantity)> items)
+    {
+        var table = _tableRepo.GetById(tableId);
+        if (table == null) throw new Exception("Table not found.");
+
+        var customer = _customerRepo.GetById(customerId);
+        if (customer == null) throw new Exception("Customer not found.");
+
+        var staff = _staffRepo.GetById(staffId);
+        if (staff == null) throw new Exception("Staff not found.");
+
+        var order = new Order(GenerateOrderId(), table, customer, staff);
+        foreach (var (menuItemId, quantity) in items)
+        {
+            var menuItem = _menuItemRepo.GetById(menuItemId);
+            if (menuItem == null) throw new Exception($"Menu item #{menuItemId} not found.");
+
+            order.OrderItems.Add((menuItem, quantity));
+            // (Optionally: adjust inventory usage of the ingredients)
+        }
+
+        _orderRepo.Add(order);
+
+        // Increase staff’s OrdersHandled
+        staff.OrdersHandled++;
+        _staffRepo.Update(staff);
+
+        Console.WriteLine($"Order placed: {order}");
+        return order;
+    }
+
+    public void UpdateOrderStatus(int orderId, string newStatus)
+    {
+        var order = _orderRepo.GetById(orderId);
+        if (order == null) throw new Exception("Order not found.");
+
+        order.Status = newStatus;
+        _orderRepo.Update(order);
+
+        Console.WriteLine($"Order #{orderId} status updated to {newStatus}.");
+    }
+
+    // ------------------------------
+    // Reporting
+    // ------------------------------
+
+    // 1) Staff Performance
+    public IEnumerable<Staff> GetStaffPerformance()
+    {
+        // Sort staff by OrdersHandled descending (most to fewest)
+        return _staffRepo.GetAll().OrderByDescending(s => s.OrdersHandled);
+    }
+
+    // 2) Most Ordered Dishes
+    public List<(MenuItem menuItem, int totalQuantity)> GetMostOrderedDishes(int topN = 5)
+    {
+        var allOrders = _orderRepo.GetAll();
+        var dishCount = new Dictionary<MenuItem, int>();
+
+        foreach (var order in allOrders)
+        {
+            foreach (var (menuItem, qty) in order.OrderItems)
+            {
+                if (!dishCount.ContainsKey(menuItem))
+                {
+                    dishCount[menuItem] = 0;
+                }
+                dishCount[menuItem] += qty;
+            }
+        }
+
+        return dishCount
+            .OrderByDescending(dc => dc.Value)
+            .Take(topN)
+            .Select(kv => (kv.Key, kv.Value))
+            .ToList();
+    }
+
+    // 3) Reservation Reports
+    public IEnumerable<Reservation> GetReservationsByDate(DateTime date)
+    {
+        return _reservationRepo.GetAll()
+            .Where(r => r.ReservationTime.Date == date.Date);
+    }
+
+    public IEnumerable<Reservation> GetReservationsByStatus(string status)
+    {
+        return _reservationRepo.GetAll()
+            .Where(r => r.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ------------------------------
+    // Helper ID Generators
+    // ------------------------------
+
+    private int GenerateReservationId()
+    {
+        return new Random().Next(1000, 9999);
+    }
+
+    private int GenerateOrderId()
+    {
+        return new Random().Next(10000, 99999);
+    }
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create in-memory repositories
+        var tableRepo = new GenericRepository<RestaurantTable>();
+        var customerRepo = new GenericRepository<Customer>();
+        var staffRepo = new GenericRepository<Staff>();
+        var menuItemRepo = new GenericRepository<MenuItem>();
+        var orderRepo = new GenericRepository<Order>();
+        var reservationRepo = new GenericRepository<Reservation>();
+        var categoryRepo = new GenericRepository<Category>();
+
+        // Create the RestaurantService
+        var restaurantService = new RestaurantService(
+            tableRepo, customerRepo, staffRepo, menuItemRepo, orderRepo, reservationRepo, categoryRepo
+        );
+
+        // Seed data
+        SeedData(tableRepo, customerRepo, staffRepo, menuItemRepo, categoryRepo);
+
+        // 1) Make a reservation
+        var reservation = restaurantService.MakeReservation(
+            customerId: 1,
+            tableId: 10,
+            reservationTime: DateTime.Today.AddHours(18),
+            specialRequests: "Window seat if possible"
+        );
+
+        // 2) Place an order
+        var order = restaurantService.PlaceOrder(
+            tableId: 10,
+            customerId: 1,
+            staffId: 101,
+            items: new List<(int menuItemId, int quantity)>
+            {
+                (1001, 2), // e.g., 2 x "Cheeseburger"
+                (1002, 1)  // 1 x "Garden Salad"
+            }
+        );
+
+        // 3) Update order status
+        restaurantService.UpdateOrderStatus(order.Id, "In Progress");
+
+        // 4) Check staff performance
+        Console.WriteLine("\n--- Staff Performance ---");
+        var performance = restaurantService.GetStaffPerformance();
+        foreach (var staff in performance)
+        {
+            Console.WriteLine($"{staff.Name} handled {staff.OrdersHandled} orders.");
+        }
+
+        // 5) Find most-ordered dishes
+        Console.WriteLine("\n--- Most Ordered Dishes ---");
+        var topDishes = restaurantService.GetMostOrderedDishes();
+        foreach (var (dish, qty) in topDishes)
+        {
+            Console.WriteLine($"{dish.Name} - Ordered {qty} time(s).");
+        }
+
+        // 6) Reservation Report
+        Console.WriteLine("\n--- Reservations Today ---");
+        var todaysReservations = restaurantService.GetReservationsByDate(DateTime.Today);
+        foreach (var res in todaysReservations)
+        {
+            Console.WriteLine(res);
+        }
+
+        // 7) Cancel a reservation
+        restaurantService.CancelReservation(reservation.Id);
+    }
+
+    private static void SeedData(
+        IRepository<RestaurantTable> tableRepo,
+        IRepository<Customer> customerRepo,
+        IRepository<Staff> staffRepo,
+        IRepository<MenuItem> menuItemRepo,
+        IRepository<Category> categoryRepo
+    )
+    {
+        // Tables
+        var table1 = new RestaurantTable(10, 4, "Indoor");
+        var table2 = new RestaurantTable(11, 2, "Outdoor");
+        tableRepo.Add(table1);
+        tableRepo.Add(table2);
+
+        // Customers
+        var cust1 = new Customer(1, "Alice Johnson", "555-1234", "Vegetarian");
+        var cust2 = new Customer(2, "Bob Smith", "555-5678", "No peanuts");
+        customerRepo.Add(cust1);
+        customerRepo.Add(cust2);
+
+        // Staff
+        var waiter1 = new Staff(101, "John Waiter", "Waiter", "9AM-5PM");
+        var chef1 = new Staff(102, "Chef Maria", "Chef", "10AM-6PM");
+        staffRepo.Add(waiter1);
+        staffRepo.Add(chef1);
+
+        // Categories
+        var catMainCourse = new Category(201, "Main Course");
+        var catSalad = new Category(202, "Salad");
+        categoryRepo.Add(catMainCourse);
+        categoryRepo.Add(catSalad);
+
+        // Menu Items
+        var menuItem1 = new MenuItem(1001, "Cheeseburger", 8.99m, catMainCourse);
+        var menuItem2 = new MenuItem(1002, "Garden Salad", 5.49m, catSalad);
+
+        // Link items to categories
+        catMainCourse.MenuItems.Add(menuItem1);
+        catSalad.MenuItems.Add(menuItem2);
+
+        menuItemRepo.Add(menuItem1);
+        menuItemRepo.Add(menuItem2);
+    }
+}
+```
+
+### Explanation
+
+1. **Seeding Data**:
+   - We create two tables (#10, #11), two customers (Alice, Bob), two staff members (John Waiter, Chef Maria), two categories (Main Course, Salad), and two menu items (Cheeseburger, Garden Salad).
+2. **Make a Reservation**:
+   - Customer #1 (Alice) reserves Table #10 at 6 PM today.
+3. **Place an Order**:
+   - For the same table (#10) and customer (#1), handled by staff #101 (John Waiter). Includes 2 x Cheeseburgers and 1 x Garden Salad.
+4. **Update Order Status**:
+   - Set the order to “In Progress.”
+5. **Staff Performance**:
+   - We output the staff sorted by `OrdersHandled` (descending).
+6. **Most Ordered Dishes**:
+   - We gather the totals from all orders and show the top requested dishes.
+7. **Reservation Report**:
+   - We list all reservations for today (there should be at least the one we just created).
+8. **Cancel a Reservation**:
+   - We cancel the reservation and free up the table.
+
+---
+
+## Final Thoughts
+
+- **Data Modeling**:
+  - `RestaurantTable`, `Customer`, `Staff`, `Category`, `MenuItem`, `Order`, and `Reservation` classes represent the core domain entities.
+- **Relationships**:
+  - **One-to-Many**: A `Category` has many `MenuItem`s, a `Staff` can handle many `Order`s, etc.
+  - **Order** references a **Table**, **Customer**, and **Staff**.
+  - **Reservation** references a **Table** and a **Customer**.
+- **Business Logic**:
+  - The `RestaurantService` orchestrates reservations, orders, status updates, and provides reporting logic (staff performance, most ordered dishes, reservation queries).
+- **Scalability**:
+  - You can easily integrate a real database (e.g., Entity Framework) or add new features (e.g., advanced inventory tracking, loyalty programs) while preserving this OOP domain model.
+
+---

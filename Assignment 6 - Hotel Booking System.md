@@ -489,3 +489,551 @@ WHERE b.CheckInDate BETWEEN '2024-12-01' AND '2024-12-31'
 - **Indexes** should be created on frequently queried fields (e.g., `BookingID`, `GuestID`, `RoomID`, etc.) to optimize query performance.
 
 ---
+
+## OOP Representation:
+
+---
+
+## 1. Data Models
+
+### 1.1 Guest
+
+Stores essential guest information and preferences.  
+For full booking history, either store it here as a list or retrieve it via a `Booking` repository.
+
+```csharp
+public class Guest
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ContactInfo { get; set; }  // e.g., phone/email
+    public string Preferences { get; set; }   // e.g., "Non-smoking room, extra pillows"
+
+    public Guest(int id, string name, string contactInfo, string preferences)
+    {
+        Id = id;
+        Name = name;
+        ContactInfo = contactInfo;
+        Preferences = preferences;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Contact: {ContactInfo}, Prefs: {Preferences}";
+    }
+}
+```
+
+### 1.2 Room
+
+Represents a hotel room with details about its type, pricing, and availability.
+
+```csharp
+public class Room
+{
+    public int Id { get; set; }
+    public string RoomType { get; set; }     // e.g., "Single", "Double", "Suite"
+    public decimal PricePerNight { get; set; }
+    public int FloorNumber { get; set; }
+    public bool IsAvailable { get; set; }
+
+    public Room(int id, string roomType, decimal pricePerNight, int floorNumber)
+    {
+        Id = id;
+        RoomType = roomType;
+        PricePerNight = pricePerNight;
+        FloorNumber = floorNumber;
+        IsAvailable = true; // default to available
+    }
+
+    public override string ToString()
+    {
+        return $"Room #{Id}, {RoomType}, Floor {FloorNumber}, Price: {PricePerNight:C}, Available: {IsAvailable}";
+    }
+}
+```
+
+### 1.3 Booking
+
+A `Booking` ties a `Guest` to a `Room`, with details about the stay (check-in, check-out, payment status, etc.).
+
+```csharp
+public class Booking
+{
+    public int Id { get; set; }
+    public Guest Guest { get; set; }
+    public Room Room { get; set; }
+    public DateTime CheckInDate { get; set; }
+    public DateTime CheckOutDate { get; set; }
+    public string PaymentStatus { get; set; }  // e.g., "Paid", "Pending"
+    public string BookingStatus { get; set; }  // e.g., "Confirmed", "Cancelled", "Completed"
+    public string SpecialRequests { get; set; }
+
+    public Booking(int id, Guest guest, Room room, DateTime checkIn, DateTime checkOut)
+    {
+        Id = id;
+        Guest = guest;
+        Room = room;
+        CheckInDate = checkIn;
+        CheckOutDate = checkOut;
+        PaymentStatus = "Pending";
+        BookingStatus = "Confirmed";
+        SpecialRequests = "";
+    }
+
+    public int TotalNights => (CheckOutDate - CheckInDate).Days;
+
+    public decimal CalculateCost()
+    {
+        // Basic cost calculation: nights * price per night
+        return TotalNights * Room.PricePerNight;
+    }
+
+    public override string ToString()
+    {
+        return $"Booking #{Id}, Guest: {Guest.Name}, Room #{Room.Id}, {CheckInDate.ToShortDateString()} - {CheckOutDate.ToShortDateString()}, Status: {BookingStatus}";
+    }
+}
+```
+
+### 1.4 Service
+
+Represents an additional service used by a guest during their stay (e.g., room service, spa, tours), linked to a specific `Booking`.
+
+```csharp
+public class Service
+{
+    public int Id { get; set; }
+    public string ServiceType { get; set; }  // e.g., "Room Service", "Spa", "Tour Booking"
+    public decimal Cost { get; set; }
+    public DateTime DateUsed { get; set; }
+    public Booking LinkedBooking { get; set; }
+
+    public string ServiceStatus { get; set; } // e.g., "Requested", "Completed", "Cancelled"
+
+    public Service(int id, string serviceType, decimal cost, DateTime dateUsed, Booking booking)
+    {
+        Id = id;
+        ServiceType = serviceType;
+        Cost = cost;
+        DateUsed = dateUsed;
+        LinkedBooking = booking;
+        ServiceStatus = "Requested";
+    }
+
+    public override string ToString()
+    {
+        return $"Service #{Id}, {ServiceType}, Cost: {Cost:C}, Date: {DateUsed.ToShortDateString()}, Booking #{LinkedBooking.Id}, Status: {ServiceStatus}";
+    }
+}
+```
+
+### 1.5 Staff
+
+Represents hotel staff members, with role-based information.
+
+```csharp
+public class Staff
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Role { get; set; }         // e.g., "Receptionist", "Housekeeping", "Manager"
+    public string Schedule { get; set; }     // e.g., "Mon-Fri 9AM-5PM"
+
+    // You could track staff performance or tasks completed here.
+
+    public Staff(int id, string name, string role, string schedule)
+    {
+        Id = id;
+        Name = name;
+        Role = role;
+        Schedule = schedule;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}, {Role}), Schedule: {Schedule}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface for CRUD operations, then create an **in-memory** `GenericRepository<T>` for each entity. In a production system, you’d likely replace these with database-backed repositories.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+```
+
+### 2.1 GenericRepository
+
+```csharp
+public class GenericRepository<T> : IRepository<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T entity) => _items.Add(entity);
+
+    public T GetById(int id)
+    {
+        // Uses reflection to find a property "Id" of type int.
+        // For a production scenario, consider a more robust approach.
+        return _items.FirstOrDefault(x =>
+            (int)x.GetType().GetProperty("Id").GetValue(x) == id
+        );
+    }
+
+    public IEnumerable<T> GetAll() => _items;
+
+    public void Update(T entity)
+    {
+        var idValue = (int)entity.GetType().GetProperty("Id").GetValue(entity);
+        var existing = GetById(idValue);
+        if (existing != null)
+        {
+            _items.Remove(existing);
+            _items.Add(entity);
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var existing = GetById(id);
+        if (existing != null) _items.Remove(existing);
+    }
+}
+```
+
+_(We can then instantiate `GenericRepository<Guest>`, `GenericRepository<Room>`, etc.)_
+
+---
+
+## 3. Core Service: `HotelService`
+
+The `HotelService` class orchestrates main functionalities like:
+
+- Creating/canceling/updating bookings
+- Checking room availability
+- Linking services to bookings
+- Generating basic reports (room occupancy, revenue by service, guest preferences)
+
+```csharp
+public class HotelService
+{
+    private readonly IRepository<Guest> _guestRepo;
+    private readonly IRepository<Room> _roomRepo;
+    private readonly IRepository<Booking> _bookingRepo;
+    private readonly IRepository<Service> _serviceRepo;
+    private readonly IRepository<Staff> _staffRepo;
+
+    public HotelService(
+        IRepository<Guest> guestRepo,
+        IRepository<Room> roomRepo,
+        IRepository<Booking> bookingRepo,
+        IRepository<Service> serviceRepo,
+        IRepository<Staff> staffRepo)
+    {
+        _guestRepo = guestRepo;
+        _roomRepo = roomRepo;
+        _bookingRepo = bookingRepo;
+        _serviceRepo = serviceRepo;
+        _staffRepo = staffRepo;
+    }
+
+    // ------------------------------
+    // Booking Management
+    // ------------------------------
+
+    /// <summary>
+    /// Creates a booking for a guest with a specified room and date range.
+    /// Checks room availability before confirming.
+    /// </summary>
+    public Booking CreateBooking(int guestId, int roomId, DateTime checkIn, DateTime checkOut, string specialRequests)
+    {
+        var guest = _guestRepo.GetById(guestId);
+        if (guest == null) throw new Exception("Guest not found.");
+
+        var room = _roomRepo.GetById(roomId);
+        if (room == null) throw new Exception("Room not found.");
+        if (!room.IsAvailable)
+            throw new Exception($"Room #{room.Id} is not currently available.");
+
+        if (checkIn >= checkOut)
+            throw new Exception("Check-in date must be before check-out date.");
+
+        // Mark room as unavailable for the duration
+        room.IsAvailable = false;
+        _roomRepo.Update(room);
+
+        var newBooking = new Booking(GenerateBookingId(), guest, room, checkIn, checkOut)
+        {
+            SpecialRequests = specialRequests
+        };
+
+        _bookingRepo.Add(newBooking);
+        Console.WriteLine($"Created {newBooking}");
+        return newBooking;
+    }
+
+    /// <summary>
+    /// Completes or cancels a booking, updating room availability.
+    /// </summary>
+    public void UpdateBookingStatus(int bookingId, string newStatus)
+    {
+        var booking = _bookingRepo.GetById(bookingId);
+        if (booking == null) throw new Exception("Booking not found.");
+
+        booking.BookingStatus = newStatus;
+        _bookingRepo.Update(booking);
+
+        // If booking is completed or cancelled, free up the room
+        if (newStatus == "Completed" || newStatus == "Cancelled")
+        {
+            var room = booking.Room;
+            if (room != null)
+            {
+                room.IsAvailable = true;
+                _roomRepo.Update(room);
+            }
+        }
+
+        Console.WriteLine($"Booking #{bookingId} status updated to {newStatus}.");
+    }
+
+    /// <summary>
+    /// Updates the payment status of a booking (e.g., to "Paid").
+    /// </summary>
+    public void UpdatePaymentStatus(int bookingId, string paymentStatus)
+    {
+        var booking = _bookingRepo.GetById(bookingId);
+        if (booking == null) throw new Exception("Booking not found.");
+
+        booking.PaymentStatus = paymentStatus;
+        _bookingRepo.Update(booking);
+
+        Console.WriteLine($"Booking #{bookingId} payment status updated to {paymentStatus}.");
+    }
+
+    // ------------------------------
+    // Service Management
+    // ------------------------------
+
+    /// <summary>
+    /// Adds a service request (room service, spa, etc.) to an existing booking.
+    /// </summary>
+    public Service RequestService(int bookingId, string serviceType, decimal cost)
+    {
+        var booking = _bookingRepo.GetById(bookingId);
+        if (booking == null) throw new Exception("Booking not found.");
+
+        var service = new Service(GenerateServiceId(), serviceType, cost, DateTime.Now, booking);
+        _serviceRepo.Add(service);
+
+        Console.WriteLine($"Service requested: {service}");
+        return service;
+    }
+
+    public void UpdateServiceStatus(int serviceId, string newStatus)
+    {
+        var service = _serviceRepo.GetById(serviceId);
+        if (service == null) throw new Exception("Service not found.");
+
+        service.ServiceStatus = newStatus;
+        _serviceRepo.Update(service);
+
+        Console.WriteLine($"Service #{serviceId} status updated to {newStatus}.");
+    }
+
+    // ------------------------------
+    // Reporting
+    // ------------------------------
+
+    /// <summary>
+    /// Room Occupancy Report: which rooms are occupied and which are free.
+    /// </summary>
+    public IEnumerable<Room> GetOccupiedRooms()
+    {
+        return _roomRepo.GetAll().Where(r => !r.IsAvailable);
+    }
+
+    /// <summary>
+    /// Revenue by Service: sums cost of each type of service for all bookings.
+    /// Returns a dictionary or a list of (ServiceType, TotalRevenue).
+    /// </summary>
+    public List<(string serviceType, decimal totalRevenue)> GetRevenueByService()
+    {
+        var grouped = _serviceRepo
+            .GetAll()
+            .GroupBy(s => s.ServiceType)
+            .Select(g => (serviceType: g.Key, totalRevenue: g.Sum(s => s.Cost)))
+            .ToList();
+
+        return grouped;
+    }
+
+    /// <summary>
+    /// Guest Preferences Report: optionally, you can list top preferences or
+    /// see how many guests requested certain things, etc.
+    /// For demonstration, we just list all guest preferences.
+    /// </summary>
+    public IEnumerable<string> GetGuestPreferences()
+    {
+        return _guestRepo.GetAll().Select(g => g.Preferences).Distinct();
+    }
+
+    // ------------------------------
+    // Helper ID Generators
+    // ------------------------------
+
+    private int GenerateBookingId()
+    {
+        return new Random().Next(1000, 9999);
+    }
+
+    private int GenerateServiceId()
+    {
+        return new Random().Next(10000, 99999);
+    }
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+Below is a `Program` class that seeds some data and demonstrates how to create bookings, request services, and generate reports.
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create in-memory repositories
+        var guestRepo = new GenericRepository<Guest>();
+        var roomRepo = new GenericRepository<Room>();
+        var bookingRepo = new GenericRepository<Booking>();
+        var serviceRepo = new GenericRepository<Service>();
+        var staffRepo = new GenericRepository<Staff>();
+
+        // Create the HotelService
+        var hotelService = new HotelService(guestRepo, roomRepo, bookingRepo, serviceRepo, staffRepo);
+
+        // 1) Seed Data
+        SeedData(guestRepo, roomRepo, staffRepo);
+
+        // 2) Create a Booking
+        var booking = hotelService.CreateBooking(
+            guestId: 1,
+            roomId: 101,
+            checkIn: DateTime.Today,
+            checkOut: DateTime.Today.AddDays(3),
+            specialRequests: "Extra pillows, late check-in"
+        );
+
+        // 3) Update Payment Status
+        hotelService.UpdatePaymentStatus(booking.Id, "Paid");
+
+        // 4) Request Additional Service (e.g., Room Service)
+        var service1 = hotelService.RequestService(booking.Id, "Room Service - Lunch", 29.99m);
+
+        // 5) Update Service Status
+        hotelService.UpdateServiceStatus(service1.Id, "Completed");
+
+        // 6) Generate some reports
+
+        // a) Room Occupancy
+        Console.WriteLine("\n--- Room Occupancy Report ---");
+        var occupiedRooms = hotelService.GetOccupiedRooms();
+        if (occupiedRooms.Any())
+        {
+            foreach (var room in occupiedRooms) Console.WriteLine(room);
+        }
+        else
+        {
+            Console.WriteLine("No rooms are currently occupied.");
+        }
+
+        // b) Revenue by Service
+        Console.WriteLine("\n--- Revenue by Service ---");
+        var serviceRevenues = hotelService.GetRevenueByService();
+        foreach (var (type, revenue) in serviceRevenues)
+        {
+            Console.WriteLine($"{type}: {revenue:C}");
+        }
+
+        // c) Guest Preferences
+        Console.WriteLine("\n--- Guest Preferences Report ---");
+        var preferences = hotelService.GetGuestPreferences();
+        foreach (var pref in preferences)
+        {
+            Console.WriteLine($"Preference: {pref}");
+        }
+
+        // 7) Complete the booking
+        hotelService.UpdateBookingStatus(booking.Id, "Completed");
+    }
+
+    private static void SeedData(
+        IRepository<Guest> guestRepo,
+        IRepository<Room> roomRepo,
+        IRepository<Staff> staffRepo)
+    {
+        // Guests
+        var guest1 = new Guest(1, "Alice Johnson", "alice@example.com", "Non-smoking room, near elevator");
+        var guest2 = new Guest(2, "Bob Smith", "bob@example.com", "Sea view if possible, allergic to feathers");
+        guestRepo.Add(guest1);
+        guestRepo.Add(guest2);
+
+        // Rooms
+        var room1 = new Room(101, "Single", 99.99m, 1);
+        var room2 = new Room(102, "Double", 149.99m, 2);
+        var room3 = new Room(201, "Suite", 299.99m, 2);
+        roomRepo.Add(room1);
+        roomRepo.Add(room2);
+        roomRepo.Add(room3);
+
+        // Staff
+        var staff1 = new Staff(1001, "John Reception", "Receptionist", "8AM-4PM");
+        var staff2 = new Staff(1002, "Mary Housekeeping", "Housekeeping", "6AM-2PM");
+        staffRepo.Add(staff1);
+        staffRepo.Add(staff2);
+
+        // By default, rooms are available. No bookings yet.
+    }
+}
+```
+
+### Explanation of the Flow
+
+1. **Seeding**: We add a couple of guests, some rooms, and staff members.
+2. **Create Booking**: Guest #1 books Room #101 for 3 nights. The system checks availability, marks the room as no longer available, and creates a `Booking`.
+3. **Update Payment Status**: We set the booking’s payment status to “Paid.”
+4. **Request Additional Service**: The guest requests a lunch via room service. We create a `Service` record linked to that booking.
+5. **Update Service**: We mark that service as completed once delivered.
+6. **Generate Reports**:
+   - **Room Occupancy**: We see which rooms are currently occupied.
+   - **Revenue by Service**: Summarize total revenue for each service type.
+   - **Guest Preferences**: Show all preferences from guests.
+7. **Complete the Booking**: We update the booking status to “Completed,” which frees up the room.
+
+---
+
+## Final Thoughts
+
+- **Domain Classes**: `Guest`, `Room`, `Booking`, `Service`, and `Staff` represent the main entities.
+- **Repositories**: We use a generic in-memory approach to store these entities.
+- **Service Layer** (`HotelService`): Orchestrates business logic (creating bookings, managing room availability, linking services, generating basic reports).
+- **Scalability**: This design easily extends to more complex features (e.g., loyalty programs, advanced scheduling, multi-property management).
+- **Security & Role-Based Access**: In a real system, staff roles (e.g., “Receptionist,” “Manager,” “Housekeeping”) could be leveraged to limit certain operations in the `HotelService` or user interface layer.
+- **Reports**: We demonstrated basic occupancy and revenue-by-service reports. Additional or more sophisticated reports can be added similarly.
+
+---

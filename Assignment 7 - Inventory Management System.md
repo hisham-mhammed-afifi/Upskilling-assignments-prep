@@ -591,3 +591,651 @@ JOIN Products p ON d.Product_ID = p.Product_ID;
 ```
 
 ---
+
+## OOP Representation:
+
+---
+
+## 1. Data Models
+
+### 1.1 Category
+
+Represents product categories (e.g., Electronics, Groceries, Apparel).
+
+```csharp
+public class Category
+{
+    public int Id { get; set; }
+    public string Name { get; set; }  // e.g., "Electronics", "Groceries"
+
+    // One-to-many: A category has multiple products
+    public List<Product> Products { get; set; } = new List<Product>();
+
+    public Category(int id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (Category ID: {Id})";
+    }
+}
+```
+
+### 1.2 Product
+
+Stores product details, including stock levels and reorder points.  
+Many-to-many relationship with `Supplier` (a product can have multiple suppliers, and a supplier can provide multiple products).
+
+```csharp
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public Category Category { get; set; }
+    public decimal Price { get; set; }
+    public int StockQuantity { get; set; }
+    public int ReorderLevel { get; set; }    // threshold for low stock alerts
+
+    // Many-to-many: A product can be supplied by multiple suppliers
+    public List<Supplier> Suppliers { get; set; } = new List<Supplier>();
+
+    public Product(int id, string name, Category category, decimal price, int stockQuantity, int reorderLevel)
+    {
+        Id = id;
+        Name = name;
+        Category = category;
+        Price = price;
+        StockQuantity = stockQuantity;
+        ReorderLevel = reorderLevel;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Price: {Price:C}, Stock: {StockQuantity}, Reorder Level: {ReorderLevel}";
+    }
+}
+```
+
+### 1.3 Supplier
+
+Stores supplier information.  
+Tracks date of last restock and can link to multiple products.
+
+```csharp
+public class Supplier
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ContactInfo { get; set; }   // e.g., phone, email, address
+    public DateTime? DateOfLastRestock { get; set; }
+
+    // Many-to-many: A supplier can supply multiple products
+    public List<Product> ProductsSupplied { get; set; } = new List<Product>();
+
+    public Supplier(int id, string name, string contactInfo)
+    {
+        Id = id;
+        Name = name;
+        ContactInfo = contactInfo;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Contact: {ContactInfo}, Last Restock: {DateOfLastRestock?.ToShortDateString() ?? "N/A"}";
+    }
+}
+```
+
+### 1.4 Customer
+
+Stores customer details and purchase history.  
+(Purchase history can be retrieved from a separate repository or stored as a list of transactions.)
+
+```csharp
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ContactInfo { get; set; }   // e.g., phone, email, address
+
+    // Optionally track loyalty points, preferences, etc.
+
+    public Customer(int id, string name, string contactInfo)
+    {
+        Id = id;
+        Name = name;
+        ContactInfo = contactInfo;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Contact: {ContactInfo}";
+    }
+}
+```
+
+### 1.5 Discount/Promotion
+
+Represents a discount or promotion that can be applied to a **product** within a date range.
+
+```csharp
+public class Discount
+{
+    public int Id { get; set; }
+    public Product Product { get; set; } // which product is discounted
+    public string DiscountType { get; set; }  // e.g., "Percentage", "Flat"
+    public decimal DiscountValue { get; set; } // e.g., 10% or $5 off
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+
+    public Discount(int id, Product product, string discountType, decimal discountValue, DateTime startDate, DateTime endDate)
+    {
+        Id = id;
+        Product = product;
+        DiscountType = discountType;
+        DiscountValue = discountValue;
+        StartDate = startDate;
+        EndDate = endDate;
+    }
+
+    public override string ToString()
+    {
+        return $"Discount #{Id}, {DiscountType}={DiscountValue}, Valid: {StartDate.ToShortDateString()} - {EndDate.ToShortDateString()} on {Product.Name}";
+    }
+}
+```
+
+### 1.6 SalesTransaction
+
+Represents a sales transaction, linking a `Customer` to purchased products.  
+This can be expanded to include partial payments, multiple payment methods, etc.
+
+```csharp
+public class SalesTransaction
+{
+    public int Id { get; set; }
+    public DateTime DateOfPurchase { get; set; }
+    public Customer Customer { get; set; }
+    public decimal TotalCost { get; set; }    // final cost after discounts
+    public decimal DiscountApplied { get; set; }
+
+    // A list of items purchased: (Product, Quantity)
+    public List<(Product item, int quantity)> PurchasedItems { get; set; }
+        = new List<(Product item, int quantity)>();
+
+    public SalesTransaction(int id, Customer customer)
+    {
+        Id = id;
+        Customer = customer;
+        DateOfPurchase = DateTime.Now;
+        TotalCost = 0m;
+        DiscountApplied = 0m;
+    }
+
+    public override string ToString()
+    {
+        return $"Transaction #{Id}, Date: {DateOfPurchase}, Customer: {Customer.Name}, Total: {TotalCost:C}, Discount: {DiscountApplied:C}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface for CRUD operations, then create a `GenericRepository<T>` implementation.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+
+public class GenericRepository<T> : IRepository<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T entity)
+    {
+        _items.Add(entity);
+    }
+
+    public T GetById(int id)
+    {
+        // Reflection approach: get property named "Id".
+        return _items.FirstOrDefault(x =>
+            (int)x.GetType().GetProperty("Id").GetValue(x) == id
+        );
+    }
+
+    public IEnumerable<T> GetAll()
+    {
+        return _items;
+    }
+
+    public void Update(T entity)
+    {
+        var entityId = (int)entity.GetType().GetProperty("Id").GetValue(entity);
+        var existing = GetById(entityId);
+        if (existing != null)
+        {
+            _items.Remove(existing);
+            _items.Add(entity);
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var existing = GetById(id);
+        if (existing != null) _items.Remove(existing);
+    }
+}
+```
+
+_(We instantiate this repository for `Product`, `Category`, `Supplier`, `Customer`, `Discount`, `SalesTransaction`, etc.)_
+
+---
+
+## 3. Core Service: `StoreService`
+
+The `StoreService` orchestrates main business operations:
+
+- **Inventory management** (stock updates, reorder alerts)
+- **Supplier linking** (associate multiple suppliers with a product)
+- **Sales** (process transactions, apply discounts)
+- **Reporting** (top-selling products, low-stock items, supplier performance)
+
+```csharp
+public class StoreService
+{
+    private readonly IRepository<Category> _categoryRepo;
+    private readonly IRepository<Product> _productRepo;
+    private readonly IRepository<Supplier> _supplierRepo;
+    private readonly IRepository<Customer> _customerRepo;
+    private readonly IRepository<Discount> _discountRepo;
+    private readonly IRepository<SalesTransaction> _salesRepo;
+
+    public StoreService(
+        IRepository<Category> categoryRepo,
+        IRepository<Product> productRepo,
+        IRepository<Supplier> supplierRepo,
+        IRepository<Customer> customerRepo,
+        IRepository<Discount> discountRepo,
+        IRepository<SalesTransaction> salesRepo)
+    {
+        _categoryRepo = categoryRepo;
+        _productRepo = productRepo;
+        _supplierRepo = supplierRepo;
+        _customerRepo = customerRepo;
+        _discountRepo = discountRepo;
+        _salesRepo = salesRepo;
+    }
+
+    // ------------------------------
+    // Inventory Management
+    // ------------------------------
+
+    /// <summary>
+    /// Adjusts stock for a product (e.g., when restocking).
+    /// </summary>
+    public void UpdateProductStock(int productId, int quantityChange)
+    {
+        var product = _productRepo.GetById(productId);
+        if (product == null) throw new Exception("Product not found.");
+
+        product.StockQuantity += quantityChange;
+        _productRepo.Update(product);
+
+        Console.WriteLine($"Stock updated for {product.Name}. New quantity: {product.StockQuantity}");
+    }
+
+    /// <summary>
+    /// Returns all products whose stock is at or below the reorder level.
+    /// </summary>
+    public IEnumerable<Product> GetLowStockProducts()
+    {
+        return _productRepo.GetAll()
+            .Where(p => p.StockQuantity <= p.ReorderLevel);
+    }
+
+    // ------------------------------
+    // Supplier Management
+    // ------------------------------
+
+    /// <summary>
+    /// Links a supplier to a product (many-to-many relationship).
+    /// Optionally set the date of last restock, etc.
+    /// </summary>
+    public void LinkSupplierToProduct(int supplierId, int productId)
+    {
+        var supplier = _supplierRepo.GetById(supplierId);
+        if (supplier == null) throw new Exception("Supplier not found.");
+
+        var product = _productRepo.GetById(productId);
+        if (product == null) throw new Exception("Product not found.");
+
+        if (!supplier.ProductsSupplied.Contains(product))
+            supplier.ProductsSupplied.Add(product);
+        if (!product.Suppliers.Contains(supplier))
+            product.Suppliers.Add(supplier);
+
+        _supplierRepo.Update(supplier);
+        _productRepo.Update(product);
+
+        Console.WriteLine($"Linked supplier '{supplier.Name}' with product '{product.Name}'.");
+    }
+
+    /// <summary>
+    /// Updates the last restock date for a supplier.
+    /// </summary>
+    public void UpdateSupplierRestockDate(int supplierId, DateTime restockDate)
+    {
+        var supplier = _supplierRepo.GetById(supplierId);
+        if (supplier == null) throw new Exception("Supplier not found.");
+
+        supplier.DateOfLastRestock = restockDate;
+        _supplierRepo.Update(supplier);
+
+        Console.WriteLine($"Supplier '{supplier.Name}' last restock updated to {restockDate.ToShortDateString()}.");
+    }
+
+    // ------------------------------
+    // Sales & Discounts
+    // ------------------------------
+
+    /// <summary>
+    /// Processes a sale for a given customer, applying any active discounts if applicable.
+    /// </summary>
+    public SalesTransaction ProcessSale(int customerId, List<(int productId, int quantity)> cartItems)
+    {
+        var customer = _customerRepo.GetById(customerId);
+        if (customer == null) throw new Exception("Customer not found.");
+
+        var transaction = new SalesTransaction(GenerateTransactionId(), customer);
+
+        // Calculate total cost, apply discounts if any are active
+        decimal subtotal = 0m;
+        decimal discountApplied = 0m;
+
+        foreach (var (productId, quantity) in cartItems)
+        {
+            var product = _productRepo.GetById(productId);
+            if (product == null) throw new Exception($"Product with ID {productId} not found.");
+            if (product.StockQuantity < quantity)
+                throw new Exception($"Insufficient stock for product '{product.Name}'.");
+
+            // Decrease stock
+            product.StockQuantity -= quantity;
+            _productRepo.Update(product);
+
+            // Check if there's an active discount for this product
+            var activeDiscount = _discountRepo.GetAll()
+                .FirstOrDefault(d =>
+                    d.Product.Id == product.Id &&
+                    DateTime.Now >= d.StartDate &&
+                    DateTime.Now <= d.EndDate
+                );
+
+            decimal itemCost = product.Price;
+            if (activeDiscount != null)
+            {
+                if (activeDiscount.DiscountType == "Percentage")
+                {
+                    var amountOff = product.Price * (activeDiscount.DiscountValue / 100m);
+                    itemCost -= amountOff;
+                    discountApplied += amountOff * quantity;
+                }
+                else if (activeDiscount.DiscountType == "Flat")
+                {
+                    itemCost -= activeDiscount.DiscountValue;
+                    discountApplied += activeDiscount.DiscountValue * quantity;
+                }
+            }
+
+            var lineTotal = itemCost * quantity;
+            subtotal += lineTotal;
+
+            // Add to transaction items
+            transaction.PurchasedItems.Add((product, quantity));
+        }
+
+        transaction.TotalCost = subtotal;
+        transaction.DiscountApplied = discountApplied;
+
+        _salesRepo.Add(transaction);
+
+        Console.WriteLine($"Sale processed: {transaction}");
+        return transaction;
+    }
+
+    // ------------------------------
+    // Reporting
+    // ------------------------------
+
+    /// <summary>
+    /// Returns top-selling products by total quantity sold, or by revenue, if needed.
+    /// </summary>
+    public List<(Product product, int quantitySold)> GetTopSellingProducts(int topN = 5)
+    {
+        // We'll track how many units each product sold across transactions.
+        var productSales = new Dictionary<Product, int>();
+
+        foreach (var sale in _salesRepo.GetAll())
+        {
+            foreach (var (item, qty) in sale.PurchasedItems)
+            {
+                if (!productSales.ContainsKey(item))
+                {
+                    productSales[item] = 0;
+                }
+                productSales[item] += qty;
+            }
+        }
+
+        return productSales
+            .OrderByDescending(ps => ps.Value)
+            .Take(topN)
+            .Select(ps => (ps.Key, ps.Value))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Reports on supplier performance.
+    /// For demonstration, we might just list suppliers who restocked recently or compare restock dates.
+    /// </summary>
+    public void PrintSupplierPerformance()
+    {
+        var allSuppliers = _supplierRepo.GetAll()
+            .OrderByDescending(s => s.DateOfLastRestock);
+        Console.WriteLine("--- Supplier Performance (Recent Restocks) ---");
+        foreach (var sup in allSuppliers)
+        {
+            Console.WriteLine(sup);
+        }
+    }
+
+    // ------------------------------
+    // Helper ID Generator
+    // ------------------------------
+
+    private int GenerateTransactionId()
+    {
+        return new Random().Next(10000, 99999);
+    }
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create in-memory repositories
+        var categoryRepo = new GenericRepository<Category>();
+        var productRepo = new GenericRepository<Product>();
+        var supplierRepo = new GenericRepository<Supplier>();
+        var customerRepo = new GenericRepository<Customer>();
+        var discountRepo = new GenericRepository<Discount>();
+        var salesRepo = new GenericRepository<SalesTransaction>();
+
+        // Create the StoreService
+        var storeService = new StoreService(
+            categoryRepo,
+            productRepo,
+            supplierRepo,
+            customerRepo,
+            discountRepo,
+            salesRepo
+        );
+
+        // 1) Seed initial data
+        SeedData(categoryRepo, productRepo, supplierRepo, customerRepo, discountRepo);
+
+        // 2) Link a supplier to a product
+        storeService.LinkSupplierToProduct(supplierId: 1, productId: 100);
+
+        // 3) Process a sale
+        var cartItems = new List<(int productId, int quantity)>
+        {
+            (100, 2),  // 2 x "Laptop"
+            (101, 3)   // 3 x "Smartphone"
+        };
+        var transaction = storeService.ProcessSale(customerId: 1, cartItems);
+
+        // 4) Check for low stock items
+        Console.WriteLine("\n--- Low Stock Items ---");
+        var lowStock = storeService.GetLowStockProducts();
+        foreach (var ls in lowStock)
+        {
+            Console.WriteLine(ls);
+        }
+
+        // 5) Generate top-selling products report
+        Console.WriteLine("\n--- Top-Selling Products ---");
+        var topSelling = storeService.GetTopSellingProducts();
+        foreach (var (product, qty) in topSelling)
+        {
+            Console.WriteLine($"{product.Name} sold {qty} units.");
+        }
+
+        // 6) Supplier performance
+        Console.WriteLine("\n--- Supplier Performance ---");
+        storeService.PrintSupplierPerformance();
+    }
+
+    private static void SeedData(
+        IRepository<Category> categoryRepo,
+        IRepository<Product> productRepo,
+        IRepository<Supplier> supplierRepo,
+        IRepository<Customer> customerRepo,
+        IRepository<Discount> discountRepo)
+    {
+        // Categories
+        var catElectronics = new Category(10, "Electronics");
+        var catGroceries = new Category(11, "Groceries");
+        categoryRepo.Add(catElectronics);
+        categoryRepo.Add(catGroceries);
+
+        // Products
+        var product1 = new Product(100, "Laptop", catElectronics, 999.99m, stockQuantity: 10, reorderLevel: 2);
+        var product2 = new Product(101, "Smartphone", catElectronics, 599.99m, stockQuantity: 20, reorderLevel: 5);
+        var product3 = new Product(102, "Bananas (1 lb)", catGroceries, 1.29m, stockQuantity: 50, reorderLevel: 10);
+        // Link products to categories
+        catElectronics.Products.Add(product1);
+        catElectronics.Products.Add(product2);
+        catGroceries.Products.Add(product3);
+
+        productRepo.Add(product1);
+        productRepo.Add(product2);
+        productRepo.Add(product3);
+
+        // Suppliers
+        var supplier1 = new Supplier(1, "Global Tech Supplies", "555-1000, 123 Tech St");
+        var supplier2 = new Supplier(2, "Fresh Foods", "555-2000, 456 Market Ave");
+        supplierRepo.Add(supplier1);
+        supplierRepo.Add(supplier2);
+
+        // Customers
+        var cust1 = new Customer(1, "Alice Johnson", "alice@example.com");
+        var cust2 = new Customer(2, "Bob Smith", "bob@example.com");
+        customerRepo.Add(cust1);
+        customerRepo.Add(cust2);
+
+        // Discounts (e.g., 10% off laptops, $50 off smartphone)
+        var discount1 = new Discount(
+            id: 1000,
+            product: product1,
+            discountType: "Percentage",
+            discountValue: 10m, // 10%
+            startDate: DateTime.Today.AddDays(-1),
+            endDate: DateTime.Today.AddDays(7)
+        );
+        var discount2 = new Discount(
+            id: 1001,
+            product: product2,
+            discountType: "Flat",
+            discountValue: 50m, // $50 off
+            startDate: DateTime.Today.AddDays(-2),
+            endDate: DateTime.Today.AddDays(5)
+        );
+        discountRepo.Add(discount1);
+        discountRepo.Add(discount2);
+    }
+}
+```
+
+### What Happens in `Main()`?
+
+1. **Seeding Data**:
+
+   - We create two categories (Electronics, Groceries).
+   - Three products (Laptop, Smartphone, Bananas).
+   - Two suppliers (Global Tech, Fresh Foods).
+   - Two customers (Alice, Bob).
+   - Two discounts (10% off laptops, $50 off smartphones).
+
+2. **Link Supplier to Product**:
+
+   - We link supplier #1 to product #100 (Laptop).
+
+3. **Process a Sale**:
+
+   - Customer #1 buys 2 laptops and 3 smartphones.
+   - The system checks product stock, applies discounts, updates stock levels, and creates a `SalesTransaction`.
+
+4. **Check Low Stock**:
+
+   - We see if any products’ stock has fallen at or below their reorder level.
+
+5. **Generate Top-Selling Products Report**:
+
+   - Summarizes total quantities sold across all transactions.
+
+6. **Supplier Performance**:
+   - We see suppliers ordered by their last restock date (just a demo in this snippet).
+
+---
+
+## Final Thoughts
+
+- **Domain Classes**: `Category`, `Product`, `Supplier`, `Customer`, `Discount`, `SalesTransaction` (and optionally more, like a `PurchaseOrder` if you track restocking in detail).
+- **Relationships**:
+  - **Product**–**Supplier**: many-to-many.
+  - **Category**–**Product**: one-to-many.
+  - **SalesTransaction**–**Product**: one-to-many within the transaction details (though it’s stored as a list of `(Product, quantity)` pairs).
+- **Repository Pattern**: We used a generic in-memory approach for CRUD operations.
+- **Business Logic**: Encapsulated in `StoreService`, handling real-time stock updates, discounts, supplier linkage, and reporting.
+- **Reports**: Demonstrated top-selling products, low-stock items, and a simple supplier performance snapshot.
+
+---

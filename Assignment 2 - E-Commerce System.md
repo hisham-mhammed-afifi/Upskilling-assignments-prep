@@ -709,3 +709,862 @@ WHERE Product_ID = 1;  -- Reduce stock for Product 1
 ```
 
 ---
+
+## OOP Rpresentation:
+
+---
+
+## 1. Data Models
+
+### 1.1 Categories
+
+Each category can be a main category or a sub-category. In this simplified model, we’ll track a possible parent category to represent sub-categories. In a more advanced system, you might store subcategories in a separate table or use a different hierarchy approach.
+
+```csharp
+public class Category
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+
+    // If this category is a sub-category, this will reference the parent (main) category
+    public Category ParentCategory { get; set; }
+
+    public Category(int id, string name, Category parentCategory = null)
+    {
+        Id = id;
+        Name = name;
+        ParentCategory = parentCategory;
+    }
+
+    public override string ToString()
+    {
+        return ParentCategory == null
+            ? $"{Name} (Main Category)"
+            : $"{Name} (Sub-Category of {ParentCategory.Name})";
+    }
+}
+```
+
+### 1.2 Product Variants
+
+A product can have multiple variants (e.g., size, color). We’ll store them in a separate `Variant` class:
+
+```csharp
+public class Variant
+{
+    public int Id { get; set; }
+    public string Name { get; set; }     // e.g., "Size: Large", "Color: Blue"
+    public int StockQuantity { get; set; }
+
+    public Variant(int id, string name, int stockQuantity)
+    {
+        Id = id;
+        Name = name;
+        StockQuantity = stockQuantity;
+    }
+
+    public override string ToString() => $"{Name}, Stock: {StockQuantity}";
+}
+```
+
+### 1.3 Suppliers
+
+Products and suppliers have a **many-to-many** relationship:
+
+- Each product can have multiple suppliers.
+- Each supplier can supply multiple products.
+
+```csharp
+public class Supplier
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ContactInfo { get; set; }  // e.g., phone or email
+    public string Region { get; set; }
+
+    public Supplier(int id, string name, string contactInfo, string region)
+    {
+        Id = id;
+        Name = name;
+        ContactInfo = contactInfo;
+        Region = region;
+    }
+
+    public override string ToString() => $"{Name} (Region: {Region})";
+}
+```
+
+### 1.4 Products
+
+- **One-to-Many** relationship with `Category` (though we allow a sub-category by referencing a `ParentCategory`).
+- **Many-to-Many** relationship with `Supplier` (modeled here via a `List<Supplier>` for simplicity).
+- Multiple `Variant` objects to track different stock levels if needed.
+
+```csharp
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public decimal Price { get; set; }
+
+    // Overall stock for the product (sum of variant stocks, or a separate metric)
+    public int StockQuantity { get; set; }
+
+    public Category Category { get; set; }
+
+    // Many-to-Many: A product can have multiple suppliers
+    public List<Supplier> Suppliers { get; set; } = new List<Supplier>();
+
+    // Variants for different sizes, colors, etc.
+    public List<Variant> Variants { get; set; } = new List<Variant>();
+
+    public Product(int id, string name, decimal price, int stockQuantity, Category category)
+    {
+        Id = id;
+        Name = name;
+        Price = price;
+        StockQuantity = stockQuantity;
+        Category = category;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (Price: {Price:C}, Stock: {StockQuantity})";
+    }
+}
+```
+
+### 1.5 Customers
+
+```csharp
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Email { get; set; }
+    public string PhoneNumber { get; set; }
+    public string DeliveryAddress { get; set; }
+
+    public Customer(int id, string name, string email, string phoneNumber, string deliveryAddress)
+    {
+        Id = id;
+        Name = name;
+        Email = email;
+        PhoneNumber = phoneNumber;
+        DeliveryAddress = deliveryAddress;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Email: {Email}";
+    }
+}
+```
+
+### 1.6 Payment
+
+Track payment method and status. Each payment is associated with an `Order` (one-to-one or one-to-many, depending on your design).
+
+```csharp
+public enum PaymentMethod
+{
+    CreditCard,
+    PayPal,
+    BankTransfer
+}
+
+public enum PaymentStatus
+{
+    Paid,
+    Pending,
+    Failed
+}
+
+public class Payment
+{
+    public int Id { get; set; }
+    public PaymentMethod Method { get; set; }
+    public PaymentStatus Status { get; set; }
+
+    public Payment(int id, PaymentMethod method, PaymentStatus status)
+    {
+        Id = id;
+        Method = method;
+        Status = status;
+    }
+
+    public override string ToString()
+    {
+        return $"Payment #{Id}: {Method}, Status = {Status}";
+    }
+}
+```
+
+### 1.7 Delivery
+
+Track shipping details, including which shipping company is used, tracking number, and delivery dates.
+
+```csharp
+public enum OrderStatus
+{
+    Pending,
+    Shipped,
+    Delivered
+}
+
+public class Delivery
+{
+    public int Id { get; set; }
+    public string ShippingCompany { get; set; }
+    public string TrackingNumber { get; set; }
+    public DateTime? ShippedDate { get; set; }
+    public DateTime? DeliveredDate { get; set; }
+
+    public Delivery(int id, string shippingCompany, string trackingNumber)
+    {
+        Id = id;
+        ShippingCompany = shippingCompany;
+        TrackingNumber = trackingNumber;
+    }
+
+    public override string ToString()
+    {
+        return $"Delivery #{Id}: Company = {ShippingCompany}, Tracking = {TrackingNumber}";
+    }
+}
+```
+
+### 1.8 Order
+
+An order has:
+
+- A reference to the `Customer`.
+- A collection of `(Product, Quantity)` pairs in the `OrderItems`.
+- A `Payment` object to record how it was paid (or if it’s pending).
+- A `Delivery` object to manage shipping details.
+- A field for the current `OrderStatus`.
+
+```csharp
+public class Order
+{
+    public int Id { get; set; }
+    public Customer Customer { get; set; }
+    public DateTime OrderDate { get; set; }
+
+    // Each order item: product + quantity
+    public List<(Product Product, int Quantity)> OrderItems { get; set; }
+        = new List<(Product, int)>();
+
+    public Payment Payment { get; set; }
+    public Delivery Delivery { get; set; }
+    public OrderStatus Status { get; set; }
+
+    public Order(int id, Customer customer)
+    {
+        Id = id;
+        Customer = customer;
+        OrderDate = DateTime.Now;
+        Status = OrderStatus.Pending;
+    }
+
+    public decimal GetTotalPrice()
+    {
+        return OrderItems.Sum(item => item.Product.Price * item.Quantity);
+    }
+
+    public override string ToString()
+    {
+        return $"Order #{Id} for {Customer.Name}, Status = {Status}, Total = {GetTotalPrice():C}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface and concrete repositories for each entity. In a production system, these would likely be backed by a database (Entity Framework, Dapper, etc.).
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+```
+
+### 2.1 ProductRepository
+
+```csharp
+public class ProductRepository : IRepository<Product>
+{
+    private readonly List<Product> _products = new List<Product>();
+
+    public void Add(Product entity)
+    {
+        _products.Add(entity);
+    }
+
+    public Product GetById(int id)
+    {
+        return _products.FirstOrDefault(x => x.Id == id);
+    }
+
+    public IEnumerable<Product> GetAll()
+    {
+        return _products;
+    }
+
+    public void Update(Product entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.Price = entity.Price;
+            existing.StockQuantity = entity.StockQuantity;
+            existing.Category = entity.Category;
+            existing.Suppliers = entity.Suppliers;
+            existing.Variants = entity.Variants;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var product = GetById(id);
+        if (product != null) _products.Remove(product);
+    }
+}
+```
+
+### 2.2 SupplierRepository
+
+```csharp
+public class SupplierRepository : IRepository<Supplier>
+{
+    private readonly List<Supplier> _suppliers = new List<Supplier>();
+
+    public void Add(Supplier entity)
+    {
+        _suppliers.Add(entity);
+    }
+
+    public Supplier GetById(int id)
+    {
+        return _suppliers.FirstOrDefault(x => x.Id == id);
+    }
+
+    public IEnumerable<Supplier> GetAll()
+    {
+        return _suppliers;
+    }
+
+    public void Update(Supplier entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.ContactInfo = entity.ContactInfo;
+            existing.Region = entity.Region;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var supplier = GetById(id);
+        if (supplier != null) _suppliers.Remove(supplier);
+    }
+}
+```
+
+### 2.3 CategoryRepository
+
+```csharp
+public class CategoryRepository : IRepository<Category>
+{
+    private readonly List<Category> _categories = new List<Category>();
+
+    public void Add(Category entity)
+    {
+        _categories.Add(entity);
+    }
+
+    public Category GetById(int id)
+    {
+        return _categories.FirstOrDefault(x => x.Id == id);
+    }
+
+    public IEnumerable<Category> GetAll()
+    {
+        return _categories;
+    }
+
+    public void Update(Category entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.ParentCategory = entity.ParentCategory;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var category = GetById(id);
+        if (category != null) _categories.Remove(category);
+    }
+}
+```
+
+### 2.4 CustomerRepository
+
+```csharp
+public class CustomerRepository : IRepository<Customer>
+{
+    private readonly List<Customer> _customers = new List<Customer>();
+
+    public void Add(Customer entity)
+    {
+        _customers.Add(entity);
+    }
+
+    public Customer GetById(int id)
+    {
+        return _customers.FirstOrDefault(x => x.Id == id);
+    }
+
+    public IEnumerable<Customer> GetAll()
+    {
+        return _customers;
+    }
+
+    public void Update(Customer entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Name = entity.Name;
+            existing.Email = entity.Email;
+            existing.PhoneNumber = entity.PhoneNumber;
+            existing.DeliveryAddress = entity.DeliveryAddress;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var customer = GetById(id);
+        if (customer != null) _customers.Remove(customer);
+    }
+}
+```
+
+### 2.5 OrderRepository
+
+```csharp
+public class OrderRepository : IRepository<Order>
+{
+    private readonly List<Order> _orders = new List<Order>();
+
+    public void Add(Order entity)
+    {
+        _orders.Add(entity);
+    }
+
+    public Order GetById(int id)
+    {
+        return _orders.FirstOrDefault(x => x.Id == id);
+    }
+
+    public IEnumerable<Order> GetAll()
+    {
+        return _orders;
+    }
+
+    public void Update(Order entity)
+    {
+        var existing = GetById(entity.Id);
+        if (existing != null)
+        {
+            existing.Customer = entity.Customer;
+            existing.OrderItems = entity.OrderItems;
+            existing.Payment = entity.Payment;
+            existing.Delivery = entity.Delivery;
+            existing.Status = entity.Status;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var order = GetById(id);
+        if (order != null) _orders.Remove(order);
+    }
+}
+```
+
+---
+
+## 3. Core Service for the Online Store
+
+A single `StoreService` class orchestrates higher-level operations (e.g., placing orders, updating payments, shipping orders, generating reports). In reality, you might split these into multiple services.
+
+```csharp
+public class StoreService
+{
+    private readonly IRepository<Product> _productRepo;
+    private readonly IRepository<Supplier> _supplierRepo;
+    private readonly IRepository<Category> _categoryRepo;
+    private readonly IRepository<Customer> _customerRepo;
+    private readonly IRepository<Order> _orderRepo;
+
+    // In a real system, payment processing might be an external call
+    public StoreService(
+        IRepository<Product> productRepo,
+        IRepository<Supplier> supplierRepo,
+        IRepository<Category> categoryRepo,
+        IRepository<Customer> customerRepo,
+        IRepository<Order> orderRepo)
+    {
+        _productRepo = productRepo;
+        _supplierRepo = supplierRepo;
+        _categoryRepo = categoryRepo;
+        _customerRepo = customerRepo;
+        _orderRepo = orderRepo;
+    }
+
+    /// <summary>
+    /// Places an order for a given customer with a set of (productId, quantity) pairs.
+    /// </summary>
+    public Order PlaceOrder(int customerId, List<(int productId, int quantity)> cartItems, PaymentMethod paymentMethod)
+    {
+        var customer = _customerRepo.GetById(customerId);
+        if (customer == null) throw new Exception("Customer does not exist.");
+
+        // Create a new order
+        var newOrderId = GenerateOrderId();
+        var order = new Order(newOrderId, customer);
+
+        // For each item in the cart, link it to the actual product
+        foreach (var item in cartItems)
+        {
+            var product = _productRepo.GetById(item.productId);
+            if (product == null)
+                throw new Exception($"Product with ID {item.productId} does not exist.");
+
+            if (product.StockQuantity < item.quantity)
+                throw new Exception($"Insufficient stock for product {product.Name}.");
+
+            // Decrease stock
+            product.StockQuantity -= item.quantity;
+            _productRepo.Update(product);
+
+            order.OrderItems.Add((product, item.quantity));
+        }
+
+        // Create a payment record (initially Pending)
+        var payment = new Payment(GeneratePaymentId(), paymentMethod, PaymentStatus.Pending);
+        order.Payment = payment;
+
+        // Save order
+        _orderRepo.Add(order);
+
+        Console.WriteLine($"Order #{order.Id} placed by {customer.Name}. Total = {order.GetTotalPrice():C} (Payment = {payment.Method}, {payment.Status}).");
+        return order;
+    }
+
+    /// <summary>
+    /// Processes a payment for a specific order, updating payment status.
+    /// </summary>
+    public void ProcessPayment(int orderId, bool isPaymentSuccessful)
+    {
+        var order = _orderRepo.GetById(orderId);
+        if (order == null) throw new Exception("Order does not exist.");
+
+        if (order.Payment == null) throw new Exception("No payment record for this order.");
+
+        order.Payment.Status = isPaymentSuccessful ? PaymentStatus.Paid : PaymentStatus.Failed;
+        _orderRepo.Update(order);
+
+        Console.WriteLine(isPaymentSuccessful
+            ? $"Payment for order #{order.Id} successful."
+            : $"Payment for order #{order.Id} failed.");
+    }
+
+    /// <summary>
+    /// Initiates shipping for a paid order, creating a Delivery record, updating order status.
+    /// </summary>
+    public void ShipOrder(int orderId, string shippingCompany, string trackingNumber)
+    {
+        var order = _orderRepo.GetById(orderId);
+        if (order == null) throw new Exception("Order does not exist.");
+
+        if (order.Payment == null || order.Payment.Status != PaymentStatus.Paid)
+            throw new Exception("Cannot ship an unpaid order.");
+
+        var deliveryId = GenerateDeliveryId();
+        var delivery = new Delivery(deliveryId, shippingCompany, trackingNumber)
+        {
+            ShippedDate = DateTime.Now
+        };
+        order.Delivery = delivery;
+        order.Status = OrderStatus.Shipped;
+
+        _orderRepo.Update(order);
+
+        Console.WriteLine($"Order #{order.Id} shipped via {shippingCompany}. Tracking: {trackingNumber}");
+    }
+
+    /// <summary>
+    /// Marks an order as delivered, updating the delivery and order status.
+    /// </summary>
+    public void MarkOrderAsDelivered(int orderId)
+    {
+        var order = _orderRepo.GetById(orderId);
+        if (order == null) throw new Exception("Order does not exist.");
+
+        if (order.Status != OrderStatus.Shipped)
+            throw new Exception("Order is not in 'Shipped' status.");
+
+        if (order.Delivery == null)
+            throw new Exception("No delivery record found to mark as delivered.");
+
+        order.Delivery.DeliveredDate = DateTime.Now;
+        order.Status = OrderStatus.Delivered;
+        _orderRepo.Update(order);
+
+        Console.WriteLine($"Order #{order.Id} delivered on {order.Delivery.DeliveredDate.Value.ToShortDateString()}");
+    }
+
+    // ---------------------------------
+    // Reporting / Analysis
+    // ---------------------------------
+
+    /// <summary>
+    /// Report: Top-selling products by total quantity sold.
+    /// </summary>
+    public List<(Product product, int totalSold)> GetTopSellingProducts(int top = 5)
+    {
+        var allOrders = _orderRepo.GetAll();
+        var productSales = new Dictionary<Product, int>();
+
+        // Tally up quantities
+        foreach (var order in allOrders)
+        {
+            foreach (var (product, quantity) in order.OrderItems)
+            {
+                if (!productSales.ContainsKey(product))
+                {
+                    productSales[product] = 0;
+                }
+                productSales[product] += quantity;
+            }
+        }
+
+        // Sort and take top
+        return productSales
+            .OrderByDescending(ps => ps.Value)
+            .Take(top)
+            .Select(ps => (ps.Key, ps.Value))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Report: All orders that are not yet delivered.
+    /// </summary>
+    public List<Order> GetPendingOrders()
+    {
+        return _orderRepo.GetAll()
+            .Where(o => o.Status == OrderStatus.Pending || o.Status == OrderStatus.Shipped)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Report: Supplier performance (stub for demonstration).
+    /// In real scenario, you'd gather data about order fulfillment times, returned items, etc.
+    /// </summary>
+    public void GetSupplierPerformance()
+    {
+        var suppliers = _supplierRepo.GetAll();
+        Console.WriteLine("---- Supplier Performance (Stub) ----");
+        foreach (var s in suppliers)
+        {
+            // For demonstration, just show supplier info
+            Console.WriteLine($"{s.Name} - Region: {s.Region}");
+        }
+    }
+
+    // ----------------------------------
+    // Helper ID Generators (In-Memory)
+    // ----------------------------------
+
+    private int GenerateOrderId()
+    {
+        var allOrders = _orderRepo.GetAll();
+        return allOrders.Any() ? allOrders.Max(o => o.Id) + 1 : 1;
+    }
+
+    private int GeneratePaymentId()
+    {
+        // In a real system, Payment might have its own repository or DB identity.
+        return new Random().Next(10000, 99999);
+    }
+
+    private int GenerateDeliveryId()
+    {
+        // In a real system, Delivery might have its own repository or DB identity.
+        return new Random().Next(10000, 99999);
+    }
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create repositories
+        var productRepo = new ProductRepository();
+        var supplierRepo = new SupplierRepository();
+        var categoryRepo = new CategoryRepository();
+        var customerRepo = new CustomerRepository();
+        var orderRepo = new OrderRepository();
+
+        // Create the store service
+        var storeService = new StoreService(
+            productRepo,
+            supplierRepo,
+            categoryRepo,
+            customerRepo,
+            orderRepo
+        );
+
+        // Seed initial data
+        SeedData(productRepo, supplierRepo, categoryRepo, customerRepo);
+
+        // 1) Customer places an order
+        var cartItems = new List<(int productId, int quantity)>
+        {
+            (1, 2),  // 2 units of Product #1
+            (2, 1)   // 1 unit of Product #2
+        };
+
+        var order = storeService.PlaceOrder(customerId: 101, cartItems, PaymentMethod.CreditCard);
+
+        // 2) Process Payment (simulating success)
+        storeService.ProcessPayment(order.Id, isPaymentSuccessful: true);
+
+        // 3) Ship Order
+        storeService.ShipOrder(order.Id, shippingCompany: "FastShip", trackingNumber: "TRACK1234");
+
+        // 4) Mark as Delivered
+        storeService.MarkOrderAsDelivered(order.Id);
+
+        // Reporting:
+
+        // a) Top-Selling Products
+        var topProducts = storeService.GetTopSellingProducts();
+        Console.WriteLine("\n--- Top Selling Products ---");
+        foreach (var (product, sold) in topProducts)
+        {
+            Console.WriteLine($"{product.Name} - {sold} unit(s) sold");
+        }
+
+        // b) Pending Orders
+        var pendingOrders = storeService.GetPendingOrders();
+        Console.WriteLine("\n--- Pending Orders ---");
+        if (!pendingOrders.Any())
+        {
+            Console.WriteLine("No pending orders at the moment.");
+        }
+        else
+        {
+            foreach (var o in pendingOrders)
+            {
+                Console.WriteLine(o);
+            }
+        }
+
+        // c) Supplier Performance (Stub)
+        Console.WriteLine("\n--- Supplier Performance Report ---");
+        storeService.GetSupplierPerformance();
+    }
+
+    private static void SeedData(
+        IRepository<Product> productRepo,
+        IRepository<Supplier> supplierRepo,
+        IRepository<Category> categoryRepo,
+        IRepository<Customer> customerRepo)
+    {
+        // Create some categories
+        var catElectronics = new Category(1, "Electronics");
+        var catClothing = new Category(2, "Clothing");
+        var catMensClothing = new Category(3, "Men's Clothing", catClothing); // sub-category
+
+        categoryRepo.Add(catElectronics);
+        categoryRepo.Add(catClothing);
+        categoryRepo.Add(catMensClothing);
+
+        // Suppliers
+        var supplier1 = new Supplier(1, "GlobalSupplies Inc.", "contact@globalsupplies.com", "USA");
+        var supplier2 = new Supplier(2, "SuperTech Co.", "info@supertech.co", "China");
+
+        supplierRepo.Add(supplier1);
+        supplierRepo.Add(supplier2);
+
+        // Products
+        var product1 = new Product(1, "Smartphone X", 699.99m, 50, catElectronics);
+        var product2 = new Product(2, "T-Shirt (Large)", 19.99m, 100, catMensClothing);
+
+        // Add suppliers to products (many-to-many)
+        product1.Suppliers.Add(supplier1);
+        product1.Suppliers.Add(supplier2);
+        product2.Suppliers.Add(supplier1);
+
+        // Add variants to products
+        var variantBlack = new Variant(1, "Color: Black", 30);
+        var variantWhite = new Variant(2, "Color: White", 20);
+        product1.Variants.Add(variantBlack);
+        product1.Variants.Add(variantWhite);
+
+        productRepo.Add(product1);
+        productRepo.Add(product2);
+
+        // Customer
+        var customer = new Customer(101, "Alice Johnson", "alice@domain.com", "555-1234", "123 Main Street");
+        customerRepo.Add(customer);
+    }
+}
+```
+
+### What Happens in `Main()`?
+
+1. We **seed** the repositories with some initial data: categories, suppliers, products (with variants), and a customer.
+2. We create a **cart** with a couple of items and **place an order** for the customer.
+3. We **process the payment** (simulating it as successful).
+4. We **ship** the order, then **mark it as delivered**.
+5. We **generate and display reports**: top-selling products, pending orders, and a stub for supplier performance.
+
+---
+
+## Final Thoughts
+
+- **Relationships**:
+  - **Category**: one-to-many (main/sub) and assigned to products.
+  - **Product**: many-to-many with suppliers, one-to-many with variants.
+  - **Order**: has a list of `(Product, Quantity)` pairs.
+- **Domain Logic**:
+  - `StoreService` handles core operations (placing orders, stock updates, payment flow, shipping).
+- **CRUD**:
+  - Each entity has a repository that implements `IRepository<T>`.
+- **Reporting**:
+  - Basic queries in `StoreService` (top-selling products, pending orders, supplier performance).
+
+---

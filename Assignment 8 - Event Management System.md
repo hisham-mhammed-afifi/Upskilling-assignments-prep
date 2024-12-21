@@ -575,3 +575,676 @@ GROUP BY e.Event_ID;
 ```
 
 ---
+
+## OOP Representaion:
+
+---
+
+## 1. Data Models
+
+### 1.1 Event
+
+Stores details about each event (name, date, location, capacity, etc.).
+
+- Can have **many** sponsors (many-to-many).
+- Has **many** participants via registrations.
+
+```csharp
+public class Event
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public DateTime EventDate { get; set; }
+    public string Location { get; set; }
+    public int Capacity { get; set; }
+
+    // Many-to-many with sponsors
+    public List<Sponsor> Sponsors { get; set; } = new List<Sponsor>();
+
+    // The total revenue can come from participant registrations + sponsor contributions.
+    public decimal TotalRevenue { get; set; }
+
+    public Event(int id, string name, DateTime eventDate, string location, int capacity)
+    {
+        Id = id;
+        Name = name;
+        EventDate = eventDate;
+        Location = location;
+        Capacity = capacity;
+        TotalRevenue = 0m;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Date: {EventDate.ToShortDateString()}, Location: {Location}, Capacity: {Capacity}";
+    }
+}
+```
+
+### 1.2 Participant
+
+Captures participant details (name, contact info, payment status, etc.).
+
+- A participant can register for multiple events (handled through a `Registration` record).
+
+```csharp
+public class Participant
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string ContactInfo { get; set; }
+    public string PaymentStatus { get; set; }   // e.g., "Paid", "Pending"
+
+    public Participant(int id, string name, string contactInfo)
+    {
+        Id = id;
+        Name = name;
+        ContactInfo = contactInfo;
+        PaymentStatus = "Pending";
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Contact: {ContactInfo}, Payment: {PaymentStatus}";
+    }
+}
+```
+
+### 1.3 Registration
+
+A `Registration` links a `Participant` to an `Event`.
+
+- Supports team registration (optional). If `TeamId != null`, it implies a team-based registration.
+
+```csharp
+public class Registration
+{
+    public int Id { get; set; }
+    public Participant Participant { get; set; }
+    public Event Event { get; set; }
+    public string RegistrationStatus { get; set; }  // e.g., "Confirmed", "Cancelled"
+    public int? TeamId { get; set; }               // for team-based registrations
+    public decimal FeePaid { get; set; }
+
+    public Registration(int id, Participant participant, Event e)
+    {
+        Id = id;
+        Participant = participant;
+        Event = e;
+        RegistrationStatus = "Confirmed";
+        FeePaid = 0m;
+    }
+
+    public override string ToString()
+    {
+        return $"Registration #{Id}: {Participant.Name} -> {Event.Name}, TeamID: {TeamId}, Status: {RegistrationStatus}";
+    }
+}
+```
+
+### 1.4 Team
+
+For team-based registrations, a `Team` can have multiple participants.
+
+- Could store a separate list of participant IDs.
+- Alternatively, each `Registration` references the same `TeamId`.
+
+```csharp
+public class Team
+{
+    public int Id { get; set; }
+    public string TeamName { get; set; }
+
+    // For demonstration, we can store participant references:
+    public List<Participant> TeamMembers { get; set; } = new List<Participant>();
+
+    public Team(int id, string teamName)
+    {
+        Id = id;
+        TeamName = teamName;
+    }
+
+    public override string ToString()
+    {
+        return $"{TeamName} (Team ID: {Id}), Members: {TeamMembers.Count}";
+    }
+}
+```
+
+### 1.5 Speaker
+
+Each event can have **many** speakers (one-to-many). A speaker has a topic and schedule.
+
+- If a speaker can speak at multiple events, you could turn this into a many-to-many. For simplicity, we’ll assume each speaker is associated with a single event in this example.
+
+```csharp
+public class Speaker
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Topic { get; set; }
+    public DateTime ScheduledTime { get; set; }
+    public Event AssociatedEvent { get; set; }
+
+    public Speaker(int id, string name, string topic, DateTime scheduledTime, Event associatedEvent)
+    {
+        Id = id;
+        Name = name;
+        Topic = topic;
+        ScheduledTime = scheduledTime;
+        AssociatedEvent = associatedEvent;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Topic: {Topic}, Time: {ScheduledTime.ToShortTimeString()}, Event: {AssociatedEvent.Name}";
+    }
+}
+```
+
+### 1.6 Venue
+
+A `Venue` has a name, capacity, booking status, facilities, etc.
+
+- If a venue can host **one** event at a time, store a direct reference to the event or event ID.
+
+```csharp
+public class Venue
+{
+    public int Id { get; set; }
+    public string VenueName { get; set; }
+    public int Capacity { get; set; }
+    public bool IsBooked { get; set; }
+    public string Facilities { get; set; }    // e.g., "Projectors, Microphones, Wi-Fi"
+    public Event BookedEvent { get; set; }    // The event currently occupying this venue (if any)
+
+    public Venue(int id, string venueName, int capacity, string facilities)
+    {
+        Id = id;
+        VenueName = venueName;
+        Capacity = capacity;
+        Facilities = facilities;
+        IsBooked = false;
+    }
+
+    public override string ToString()
+    {
+        return $"{VenueName} (ID: {Id}), Capacity: {Capacity}, Booked: {IsBooked}, Facilities: {Facilities}";
+    }
+}
+```
+
+### 1.7 Sponsor
+
+A sponsor can sponsor multiple events (many-to-many).
+
+- We can store a list of events or store sponsor contributions in a bridging entity. For simplicity, we’ll keep a list of `Event`s.
+
+```csharp
+public class Sponsor
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public decimal ContributionAmount { get; set; }
+    public string SponsorshipType { get; set; }   // e.g., "Gold", "Silver", "Bronze"
+
+    // Many-to-many: A sponsor can support multiple events
+    public List<Event> SponsoredEvents { get; set; } = new List<Event>();
+
+    public Sponsor(int id, string name, decimal contributionAmount, string sponsorshipType)
+    {
+        Id = id;
+        Name = name;
+        ContributionAmount = contributionAmount;
+        SponsorshipType = sponsorshipType;
+    }
+
+    public override string ToString()
+    {
+        return $"{Name} (ID: {Id}), Contribution: {ContributionAmount:C}, Type: {SponsorshipType}";
+    }
+}
+```
+
+---
+
+## 2. Repositories (In-Memory)
+
+We’ll define a generic `IRepository<T>` interface for CRUD operations, then create a `GenericRepository<T>` for each entity. In a production system, you’d use a database with EF or similar.
+
+```csharp
+public interface IRepository<T>
+{
+    void Add(T entity);
+    T GetById(int id);
+    IEnumerable<T> GetAll();
+    void Update(T entity);
+    void Delete(int id);
+}
+
+public class GenericRepository<T> : IRepository<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T entity) => _items.Add(entity);
+
+    public T GetById(int id)
+    {
+        return _items.FirstOrDefault(x =>
+            (int)x.GetType().GetProperty("Id").GetValue(x) == id
+        );
+    }
+
+    public IEnumerable<T> GetAll() => _items;
+
+    public void Update(T entity)
+    {
+        var entityId = (int)entity.GetType().GetProperty("Id").GetValue(entity);
+        var existing = GetById(entityId);
+        if (existing != null)
+        {
+            _items.Remove(existing);
+            _items.Add(entity);
+        }
+    }
+
+    public void Delete(int id)
+    {
+        var existing = GetById(id);
+        if (existing != null) _items.Remove(existing);
+    }
+}
+```
+
+---
+
+## 3. Core Service: `EventManagementService`
+
+This service handles:
+
+- **Event CRUD**
+- **Venue booking**
+- **Participant registration** (including team support)
+- **Sponsorship** linking
+- **Reporting** (event revenue, participation trends, sponsor contributions)
+
+```csharp
+public class EventManagementService
+{
+    private readonly IRepository<Event> _eventRepo;
+    private readonly IRepository<Participant> _participantRepo;
+    private readonly IRepository<Registration> _registrationRepo;
+    private readonly IRepository<Team> _teamRepo;
+    private readonly IRepository<Speaker> _speakerRepo;
+    private readonly IRepository<Venue> _venueRepo;
+    private readonly IRepository<Sponsor> _sponsorRepo;
+
+    public EventManagementService(
+        IRepository<Event> eventRepo,
+        IRepository<Participant> participantRepo,
+        IRepository<Registration> registrationRepo,
+        IRepository<Team> teamRepo,
+        IRepository<Speaker> speakerRepo,
+        IRepository<Venue> venueRepo,
+        IRepository<Sponsor> sponsorRepo)
+    {
+        _eventRepo = eventRepo;
+        _participantRepo = participantRepo;
+        _registrationRepo = registrationRepo;
+        _teamRepo = teamRepo;
+        _speakerRepo = speakerRepo;
+        _venueRepo = venueRepo;
+        _sponsorRepo = sponsorRepo;
+    }
+
+    // ------------------------------
+    // Event Management
+    // ------------------------------
+
+    public Event CreateEvent(string name, DateTime date, string location, int capacity)
+    {
+        var newId = GenerateEventId();
+        var ev = new Event(newId, name, date, location, capacity);
+        _eventRepo.Add(ev);
+
+        Console.WriteLine($"Created {ev}");
+        return ev;
+    }
+
+    public void UpdateEvent(Event ev)
+    {
+        _eventRepo.Update(ev);
+        Console.WriteLine($"Event #{ev.Id} updated.");
+    }
+
+    public void DeleteEvent(int eventId)
+    {
+        _eventRepo.Delete(eventId);
+        Console.WriteLine($"Event #{eventId} deleted.");
+    }
+
+    // ------------------------------
+    // Venue Booking
+    // ------------------------------
+
+    public void BookVenueForEvent(int venueId, int eventId)
+    {
+        var venue = _venueRepo.GetById(venueId);
+        var ev = _eventRepo.GetById(eventId);
+        if (venue == null || ev == null) throw new Exception("Venue or event not found.");
+
+        if (venue.IsBooked)
+            throw new Exception("Venue is already booked.");
+
+        // Simple capacity check
+        if (ev.Capacity > venue.Capacity)
+            throw new Exception("Cannot book venue: capacity too small for this event.");
+
+        venue.IsBooked = true;
+        venue.BookedEvent = ev;
+        _venueRepo.Update(venue);
+
+        Console.WriteLine($"Venue '{venue.VenueName}' booked for event '{ev.Name}'.");
+    }
+
+    public void ReleaseVenue(int venueId)
+    {
+        var venue = _venueRepo.GetById(venueId);
+        if (venue == null) throw new Exception("Venue not found.");
+
+        venue.IsBooked = false;
+        venue.BookedEvent = null;
+        _venueRepo.Update(venue);
+
+        Console.WriteLine($"Venue #{venueId} is now free.");
+    }
+
+    // ------------------------------
+    // Participant & Registration
+    // ------------------------------
+
+    public Participant RegisterParticipant(string name, string contactInfo)
+    {
+        var newId = GenerateParticipantId();
+        var participant = new Participant(newId, name, contactInfo);
+        _participantRepo.Add(participant);
+
+        Console.WriteLine($"Created {participant}");
+        return participant;
+    }
+
+    public Registration RegisterForEvent(int participantId, int eventId, decimal fee, int? teamId = null)
+    {
+        var participant = _participantRepo.GetById(participantId);
+        var ev = _eventRepo.GetById(eventId);
+        if (participant == null || ev == null) throw new Exception("Participant or event not found.");
+
+        // Simple capacity check
+        var regCount = _registrationRepo.GetAll().Count(r => r.Event.Id == ev.Id && r.RegistrationStatus == "Confirmed");
+        if (regCount >= ev.Capacity)
+            throw new Exception("Event capacity reached, cannot register more participants.");
+
+        var newRegId = GenerateRegistrationId();
+        var registration = new Registration(newRegId, participant, ev)
+        {
+            FeePaid = fee,
+            TeamId = teamId
+        };
+
+        _registrationRepo.Add(registration);
+        participant.PaymentStatus = fee > 0 ? "Paid" : participant.PaymentStatus;
+        _participantRepo.Update(participant);
+
+        // Update event revenue
+        ev.TotalRevenue += fee;
+        _eventRepo.Update(ev);
+
+        Console.WriteLine($"Registered {participant.Name} for event '{ev.Name}'. Registration #{registration.Id}.");
+        return registration;
+    }
+
+    public void CancelRegistration(int registrationId)
+    {
+        var reg = _registrationRepo.GetById(registrationId);
+        if (reg == null) throw new Exception("Registration not found.");
+
+        reg.RegistrationStatus = "Cancelled";
+        _registrationRepo.Update(reg);
+
+        Console.WriteLine($"Registration #{registrationId} cancelled.");
+    }
+
+    // ------------------------------
+    // Teams
+    // ------------------------------
+
+    public Team CreateTeam(string teamName, List<int> participantIds)
+    {
+        var newTeamId = GenerateTeamId();
+        var team = new Team(newTeamId, teamName);
+
+        foreach (var pid in participantIds)
+        {
+            var participant = _participantRepo.GetById(pid);
+            if (participant != null)
+            {
+                team.TeamMembers.Add(participant);
+            }
+        }
+
+        _teamRepo.Add(team);
+        Console.WriteLine($"Team '{teamName}' created with ID #{team.Id}.");
+        return team;
+    }
+
+    // ------------------------------
+    // Speakers
+    // ------------------------------
+
+    public Speaker AddSpeakerToEvent(int eventId, string speakerName, string topic, DateTime schedule)
+    {
+        var ev = _eventRepo.GetById(eventId);
+        if (ev == null) throw new Exception("Event not found.");
+
+        var newId = GenerateSpeakerId();
+        var speaker = new Speaker(newId, speakerName, topic, schedule, ev);
+        _speakerRepo.Add(speaker);
+
+        Console.WriteLine($"Speaker '{speaker.Name}' added to event '{ev.Name}'.");
+        return speaker;
+    }
+
+    // ------------------------------
+    // Sponsors
+    // ------------------------------
+
+    public void AddSponsorToEvent(int sponsorId, int eventId)
+    {
+        var sponsor = _sponsorRepo.GetById(sponsorId);
+        var ev = _eventRepo.GetById(eventId);
+        if (sponsor == null || ev == null) throw new Exception("Sponsor or event not found.");
+
+        // Link sponsor <-> event (many-to-many)
+        if (!sponsor.SponsoredEvents.Contains(ev))
+            sponsor.SponsoredEvents.Add(ev);
+
+        if (!ev.Sponsors.Contains(sponsor))
+            ev.Sponsors.Add(sponsor);
+
+        // Increase event’s revenue by sponsor’s contribution
+        ev.TotalRevenue += sponsor.ContributionAmount;
+        _eventRepo.Update(ev);
+
+        _sponsorRepo.Update(sponsor);
+
+        Console.WriteLine($"Sponsor '{sponsor.Name}' added to event '{ev.Name}'.");
+    }
+
+    // ------------------------------
+    // Reporting
+    // ------------------------------
+
+    public void PrintEventRevenue(int eventId)
+    {
+        var ev = _eventRepo.GetById(eventId);
+        if (ev == null) throw new Exception("Event not found.");
+        Console.WriteLine($"Event '{ev.Name}' revenue: {ev.TotalRevenue:C}");
+    }
+
+    public void PrintParticipationTrends()
+    {
+        // For demonstration, we can show total registrations per event
+        Console.WriteLine("--- Participation Trends ---");
+        var allEvents = _eventRepo.GetAll();
+        foreach (var ev in allEvents)
+        {
+            var regCount = _registrationRepo.GetAll().Count(r => r.Event.Id == ev.Id && r.RegistrationStatus == "Confirmed");
+            Console.WriteLine($"Event '{ev.Name}': {regCount} participant(s) confirmed.");
+        }
+    }
+
+    public void PrintSponsorContributions()
+    {
+        Console.WriteLine("--- Sponsor Contributions ---");
+        foreach (var sponsor in _sponsorRepo.GetAll())
+        {
+            Console.WriteLine($"{sponsor.Name} contributed {sponsor.ContributionAmount:C} ({sponsor.SponsorshipType}) to {sponsor.SponsoredEvents.Count} event(s).");
+        }
+    }
+
+    // ------------------------------
+    // ID Generators
+    // ------------------------------
+
+    private int GenerateEventId() => new Random().Next(100, 999);
+    private int GenerateParticipantId() => new Random().Next(1000, 9999);
+    private int GenerateRegistrationId() => new Random().Next(10000, 99999);
+    private int GenerateTeamId() => new Random().Next(200, 299);
+    private int GenerateSpeakerId() => new Random().Next(300, 399);
+}
+```
+
+---
+
+## 4. Demonstration / Usage
+
+```csharp
+public class Program
+{
+    public static void Main()
+    {
+        // Create in-memory repositories
+        var eventRepo = new GenericRepository<Event>();
+        var participantRepo = new GenericRepository<Participant>();
+        var registrationRepo = new GenericRepository<Registration>();
+        var teamRepo = new GenericRepository<Team>();
+        var speakerRepo = new GenericRepository<Speaker>();
+        var venueRepo = new GenericRepository<Venue>();
+        var sponsorRepo = new GenericRepository<Sponsor>();
+
+        // Create the service
+        var eventService = new EventManagementService(
+            eventRepo,
+            participantRepo,
+            registrationRepo,
+            teamRepo,
+            speakerRepo,
+            venueRepo,
+            sponsorRepo
+        );
+
+        // 1) Seed initial data
+        SeedData(eventRepo, participantRepo, venueRepo, sponsorRepo);
+
+        // 2) Book a venue for an event
+        eventService.BookVenueForEvent(venueId: 10, eventId: 101);
+
+        // 3) Register participants
+        var newParticipant = eventService.RegisterParticipant("Alice Johnson", "alice@example.com");
+        eventService.RegisterForEvent(newParticipant.Id, eventId: 101, fee: 99.99m);
+
+        // 4) Create a team and do a team registration
+        var team = eventService.CreateTeam("Team Alpha", new List<int> { newParticipant.Id });
+        var secondParticipant = eventService.RegisterParticipant("Bob Smith", "bob@example.com");
+        team.TeamMembers.Add(secondParticipant);
+        // Register Bob under the same team as well
+        eventService.RegisterForEvent(secondParticipant.Id, eventId: 101, fee: 99.99m, teamId: team.Id);
+
+        // 5) Add a guest speaker
+        eventService.AddSpeakerToEvent(eventId: 101, speakerName: "Dr. Jones", topic: "Future of Tech", schedule: DateTime.Now.AddHours(2));
+
+        // 6) Add a sponsor to the event
+        eventService.AddSponsorToEvent(sponsorId: 1, eventId: 101);
+
+        // 7) Generate some reports
+        eventService.PrintEventRevenue(eventId: 101);
+        eventService.PrintParticipationTrends();
+        eventService.PrintSponsorContributions();
+
+        // 8) Release the venue after the event
+        eventService.ReleaseVenue(venueId: 10);
+    }
+
+    private static void SeedData(IRepository<Event> eventRepo, IRepository<Participant> participantRepo, IRepository<Venue> venueRepo, IRepository<Sponsor> sponsorRepo)
+    {
+        // Events
+        var ev1 = new Event(101, "Tech Conference 2024", new DateTime(2024, 5, 20), "New York", capacity: 100);
+        var ev2 = new Event(102, "Music Festival 2024", new DateTime(2024, 7, 10), "Los Angeles", capacity: 200);
+        eventRepo.Add(ev1);
+        eventRepo.Add(ev2);
+
+        // Participants
+        var p1 = new Participant(1001, "John Doe", "john@example.com");
+        participantRepo.Add(p1);
+
+        // Venues
+        var v1 = new Venue(10, "Grand Hall NYC", 150, "Projectors, Speakers, Wi-Fi");
+        var v2 = new Venue(11, "LA Open Grounds", 300, "Stage, Lights, Sound System");
+        venueRepo.Add(v1);
+        venueRepo.Add(v2);
+
+        // Sponsors
+        var s1 = new Sponsor(1, "TechCorp", 5000m, "Gold");
+        var s2 = new Sponsor(2, "MusicWorld Inc.", 3000m, "Silver");
+        sponsorRepo.Add(s1);
+        sponsorRepo.Add(s2);
+    }
+}
+```
+
+### Explanation of the Flow
+
+1. **Seeding**
+   - Two events (`Tech Conference 2024`, `Music Festival 2024`)
+   - One participant (`John Doe`), two venues (`Grand Hall NYC`, `LA Open Grounds`), and two sponsors (`TechCorp`, `MusicWorld Inc.`).
+2. **Book a Venue**
+   - We book `Grand Hall NYC` (venue ID 10) for event ID 101 (`Tech Conference 2024`). Checks capacity, marks venue as booked.
+3. **Register Participant**
+   - Creates a new participant (`Alice Johnson`) and registers her for event #101 with a fee of $99.99.
+4. **Team Registration**
+   - Creates `Team Alpha` with `Alice` as an initial member. Adds `Bob Smith` to the team, then registers Bob for the same event #101 under the team ID.
+5. **Add a Guest Speaker**
+   - `Dr. Jones` is added to event #101 with a topic and schedule.
+6. **Add a Sponsor**
+   - `TechCorp` (sponsor ID #1) sponsors event #101. The event’s total revenue goes up by $5,000.
+7. **Generate Reports**
+   - Prints event revenue for event #101, overall participation trends for all events, and sponsor contributions across events.
+8. **Release the Venue**
+   - After the event is done, the venue is freed up for future bookings.
+
+---
+
+## Final Thoughts
+
+- **Data Modeling**:
+  - **Event** <-> **Sponsor**: many-to-many.
+  - **Event** <-> **Participant**: many-to-many, represented by the `Registration` table/class.
+  - **Team** <-> **Participant**: one-to-many (a team has multiple participants, each participant references a `TeamId` in the registration, if needed).
+  - **Event** <-> **Speaker**: one-to-many (each event can have multiple speakers).
+  - **Venue** <-> **Event**: one-to-one at a time (the venue can be booked by only one event).
+- **Business Logic**:
+  - Encapsulated in `EventManagementService`: booking venues, registering participants, creating teams, linking sponsors, generating reports.
+- **Reporting**:
+  - Basic samples for event revenue, participation trends (registrations count), sponsor contributions.
+
+---
