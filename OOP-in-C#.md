@@ -1,6 +1,6 @@
 ## Suggested Topics for Separate Discussions
 
-1. **Deep Dive into the Four OOP Pillars**
+1. **[Deep Dive into the Four OOP Pillars](#deep-dive-into-the-four-oop-pillars)**
 
    - _Subtopics_:
      - Encapsulation best practices in modern C#
@@ -8,35 +8,35 @@
      - Polymorphism pitfalls (overriding, hiding methods, the `virtual` keyword)
      - Abstraction patterns (when to choose abstract classes vs. interfaces)
 
-2. **Advanced Relationships & Lifecycles**
+2. **[Advanced Relationships & Lifecycles](#advanced-relationships--lifecycles)**
 
    - _Subtopics_:
      - Association vs. Aggregation vs. Composition in real systems
      - Managing object lifecycles (IoC containers, DI frameworks)
      - Mapping relationships in databases (e.g., EF Core or other ORMs)
 
-3. **Encapsulation & Data Protection Techniques**
+3. **[Encapsulation & Data Protection Techniques](#encapsulation--data-protection-techniques)**
 
    - _Subtopics_:
      - C# access modifiers beyond `private/public` (e.g., `protected internal`)
      - Writing robust property setters/getters with advanced validation
      - Best practices for dealing with sensitive data (security, encryption, etc.)
 
-4. **Polymorphism and Interface Implementation**
+4. **[Polymorphism and Interface Implementation](#polymorphism-and-interface-implementation)**
 
    - _Subtopics_:
      - Dynamic vs. static polymorphism, generics usage in C#
      - Deeper interface segregation examples (splitting large interfaces)
      - Implementing multiple interfaces gracefully (avoid collisions, naming conventions)
 
-5. **SOLID Principles in Practice**
+5. **[SOLID Principles in Practice](#solid-principles-in-practice)**
 
    - _Subtopics_:
      - Single Responsibility Principle (SRP) with real-world scenarios
      - Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
      - Identifying and fixing “code smells” that violate SOLID
 
-6. **Design Patterns for Maintainable Code**
+6. **[Design Patterns for Maintainable Code](#design-patterns-for-maintainable-code)**
 
    - _Subtopics_:
      - Factory, Abstract Factory, Builder (object creation patterns)
