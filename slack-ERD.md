@@ -96,109 +96,100 @@ CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ## ERD in Mermaid Syntax
 
 ```mermaid
-erd
-entity "Users" {
-    * UserID : INT (PK)
-    ---
-    Username : VARCHAR(50)
-    Email : VARCHAR(100)
-    PasswordHash : VARCHAR(255)
-    ProfilePictureURL : TEXT
-    CreatedAt : TIMESTAMP
-    LastLogin : TIMESTAMP
-}
+erDiagram
+    Users {
+        INT UserID PK
+        VARCHAR Username
+        VARCHAR Email
+        VARCHAR PasswordHash
+        TEXT ProfilePictureURL
+        TIMESTAMP CreatedAt
+        TIMESTAMP LastLogin
+    }
 
-entity "Workspaces" {
-    * WorkspaceID : INT (PK)
-    ---
-    WorkspaceName : VARCHAR(100)
-    Description : TEXT
-    CreatedBy : INT (FK -> Users.UserID)
-    CreatedAt : TIMESTAMP
-}
+    Workspaces {
+        INT WorkspaceID PK
+        VARCHAR WorkspaceName
+        TEXT Description
+        INT CreatedBy FK
+        TIMESTAMP CreatedAt
+    }
 
-entity "WorkspaceMemberships" {
-    * MembershipID : INT (PK)
-    ---
-    WorkspaceID : INT (FK -> Workspaces.WorkspaceID)
-    UserID : INT (FK -> Users.UserID)
-    Role : ENUM ('Admin', 'Member')
-    JoinedAt : TIMESTAMP
-}
+    WorkspaceMemberships {
+        INT MembershipID PK
+        INT WorkspaceID FK
+        INT UserID FK
+        ENUM Role
+        TIMESTAMP JoinedAt
+    }
 
-entity "Channels" {
-    * ChannelID : INT (PK)
-    ---
-    WorkspaceID : INT (FK -> Workspaces.WorkspaceID)
-    ChannelName : VARCHAR(100)
-    IsPrivate : BOOLEAN
-    CreatedBy : INT (FK -> Users.UserID)
-    CreatedAt : TIMESTAMP
-}
+    Channels {
+        INT ChannelID PK
+        INT WorkspaceID FK
+        VARCHAR ChannelName
+        BOOLEAN IsPrivate
+        INT CreatedBy FK
+        TIMESTAMP CreatedAt
+    }
 
-entity "ChannelMemberships" {
-    * MembershipID : INT (PK)
-    ---
-    ChannelID : INT (FK -> Channels.ChannelID)
-    UserID : INT (FK -> Users.UserID)
-    JoinedAt : TIMESTAMP
-}
+    ChannelMemberships {
+        INT MembershipID PK
+        INT ChannelID FK
+        INT UserID FK
+        TIMESTAMP JoinedAt
+    }
 
-entity "Messages" {
-    * MessageID : INT (PK)
-    ---
-    ChannelID : INT (FK -> Channels.ChannelID)
-    SenderID : INT (FK -> Users.UserID)
-    Content : TEXT
-    ParentMessageID : INT (FK -> Messages.MessageID)
-    CreatedAt : TIMESTAMP
-}
+    Messages {
+        INT MessageID PK
+        INT ChannelID FK
+        INT SenderID FK
+        TEXT Content
+        INT ParentMessageID FK
+        TIMESTAMP CreatedAt
+    }
 
-entity "PrivateMessages" {
-    * PrivateMessageID : INT (PK)
-    ---
-    SenderID : INT (FK -> Users.UserID)
-    Content : TEXT
-    CreatedAt : TIMESTAMP
-}
+    PrivateMessages {
+        INT PrivateMessageID PK
+        INT SenderID FK
+        TEXT Content
+        TIMESTAMP CreatedAt
+    }
 
-entity "PrivateMessageParticipants" {
-    * ParticipantID : INT (PK)
-    ---
-    PrivateMessageID : INT (FK -> PrivateMessages.PrivateMessageID)
-    UserID : INT (FK -> Users.UserID)
-}
+    PrivateMessageParticipants {
+        INT ParticipantID PK
+        INT PrivateMessageID FK
+        INT UserID FK
+    }
 
-entity "Files" {
-    * FileID : INT (PK)
-    ---
-    UploadedBy : INT (FK -> Users.UserID)
-    FileName : VARCHAR(255)
-    FileURL : TEXT
-    MessageID : INT (FK -> Messages.MessageID)
-    UploadedAt : TIMESTAMP
-}
+    Files {
+        INT FileID PK
+        INT UploadedBy FK
+        VARCHAR FileName
+        TEXT FileURL
+        INT MessageID FK
+        TIMESTAMP UploadedAt
+    }
 
-entity "Notifications" {
-    * NotificationID : INT (PK)
-    ---
-    UserID : INT (FK -> Users.UserID)
-    Message : TEXT
-    IsRead : BOOLEAN
-    CreatedAt : TIMESTAMP
-}
+    Notifications {
+        INT NotificationID PK
+        INT UserID FK
+        TEXT Message
+        BOOLEAN IsRead
+        TIMESTAMP CreatedAt
+    }
 
-Users ||--o{ Workspaces : "creates"
-Workspaces ||--o{ WorkspaceMemberships : "has"
-Users ||--o{ WorkspaceMemberships : "joins"
-Workspaces ||--o{ Channels : "contains"
-Channels ||--o{ ChannelMemberships : "has"
-Users ||--o{ ChannelMemberships : "joins"
-Channels ||--o{ Messages : "has"
-Messages ||--o{ Files : "includes"
-Messages ||--|{ Messages : "replies to"
-Users ||--o{ Messages : "sends"
-PrivateMessages ||--o{ PrivateMessageParticipants : "has"
-Users ||--o{ PrivateMessageParticipants : "participates in"
-Users ||--o{ Notifications : "receives"
+    Users ||--o{ Workspaces : "creates"
+    Workspaces ||--o{ WorkspaceMemberships : "has"
+    Users ||--o{ WorkspaceMemberships : "joins"
+    Workspaces ||--o{ Channels : "contains"
+    Channels ||--o{ ChannelMemberships : "has"
+    Users ||--o{ ChannelMemberships : "joins"
+    Channels ||--o{ Messages : "has"
+    Messages ||--o{ Files : "includes"
+    Messages ||--|{ Messages : "replies to"
+    Users ||--o{ Messages : "sends"
+    PrivateMessages ||--o{ PrivateMessageParticipants : "has"
+    Users ||--o{ PrivateMessageParticipants : "participates in"
+    Users ||--o{ Notifications : "receives"
+
 ```
